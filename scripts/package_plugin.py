@@ -50,7 +50,7 @@ def repository_relative(path: Path, argument_name: str) -> Path:
 
 
 def package_files(plugin_dir: Path) -> list[Path]:
-    included_paths = [Path("README.md"), DEFAULT_MARKETPLACE_FILE, plugin_dir]
+    included_paths = [Path("README.md"), Path("LICENSE"), DEFAULT_MARKETPLACE_FILE, plugin_dir]
     result = subprocess.run(
         [
             "git",

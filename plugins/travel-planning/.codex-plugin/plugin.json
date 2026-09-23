@@ -1,11 +1,11 @@
 {
   "name": "travel-planning",
-  "version": "0.1.0+codex.20260922075121",
+  "version": "0.1.0+codex.20260923030115",
   "description": "Research travel sources and generate executable responsive itinerary pages.",
   "author": {
     "name": "Travel Planning contributors"
   },
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {

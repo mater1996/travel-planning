@@ -4,5 +4,6 @@
   "description": "旅行数据源调研与响应式行程页面生成插件",
   "author": {
     "name": "Travel Planning contributors"
-  }
+  },
+  "license": "PolyForm-Noncommercial-1.0.0"
 }

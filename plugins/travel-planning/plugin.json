@@ -2,6 +2,7 @@
   "name": "travel-planning",
   "version": "0.1.0",
   "description": "旅行数据源调研与响应式行程页面生成插件",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json"
 }
