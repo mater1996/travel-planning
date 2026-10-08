@@ -1,6 +1,6 @@
 {
   "schema_version": "travel-research-result/v2",
-  "template_version": 4,
+  "template_version": 5,
   "template_digest": "COPY_FROM_ASSIGNMENT",
   "task_id": "COPY_FROM_ASSIGNMENT",
   "status": "complete",

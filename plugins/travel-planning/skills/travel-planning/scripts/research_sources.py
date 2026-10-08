@@ -682,7 +682,7 @@ def capabilities(_: argparse.Namespace) -> dict[str, Any]:
         "xiaohongshu": {
             "adapter_available": True,
             "live_query_requires": ["固定版本本地 MCP 已安装并启动", "用户本人已扫码登录"],
-            "provider": "xpzouying/xiaohongshu-mcp（非官方，固定 v2.5.0）",
+            "provider": "xpzouying/xiaohongshu-mcp（非官方，固定 v2.5.2）",
             "transport": "MCP Streamable HTTP + 独立无头浏览器",
             "fields": ["近期玩法", "昼夜体验", "入口体验", "拥挤与避坑", "包车和行李体验"],
             "setup": "python3 skills/xiaohongshu/scripts/setup.py install",
@@ -1572,7 +1572,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     command = subparsers.add_parser("xhs-search", help="搜索小红书公开笔记并脱敏输出")
     command.add_argument("--keyword", required=True)
-    command.add_argument("--sort-by", choices=["relevance", "latest", "most_liked", "most_commented", "most_collected"], default="latest")
+    command.add_argument("--sort-by", choices=["relevance", "latest", "most_liked", "most_commented", "most_collected"], default="relevance")
     command.add_argument("--note-type", choices=["all", "video", "image"], default="all")
     command.add_argument("--publish-time", choices=["all", "day", "week", "half_year"], default="half_year")
     command.add_argument("--search-scope", choices=["all", "viewed", "unviewed", "following"], default="all")

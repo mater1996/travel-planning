@@ -23,6 +23,7 @@ ACTION_ALIASES = {
 }
 OUTPUT_COLLECTIONS = (
     "readiness", "attractions", "transport_edges", "intercity_options",
+    "vehicles", "road_trip_plans", "rental_options", "parking_locations",
     "lodging_options", "restaurants", "restaurant_snapshots",
     "meal_baseline_routes", "meal_route_evaluations", "meal_options", "weather",
 )
@@ -534,6 +535,10 @@ def validate_plan(workspace: Path, plan: dict[str, Any]) -> None:
     for field in ("trip", "workflow", "collections", "days"):
         if field not in plan:
             raise AssemblyError(f"plan 缺少 {field}")
+    if (plan.get("workflow") or {}).get("plan_status") == "candidate":
+        raise AssemblyError(
+            "itinerary plan 仍是 candidate；请在 planning-decisions.json 完成取舍并将 plan_status 设为 reviewed"
+        )
     selected_route = read_json(workspace / "selected-route.json")
     if plan["workflow"].get("selected_route_id") != selected_route.get("id"):
         raise AssemblyError("plan.selected_route_id 与 workspace 已确认路线不一致")
@@ -583,11 +588,13 @@ def assemble(workspace: Path, plan_path: Path) -> dict[str, Any]:
             if attraction_id in attraction_events:
                 booking_tasks.append(build_booking_task(attraction, attraction_events[attraction_id], defaults))
     booking_tasks.extend(deepcopy(plan.get("booking_tasks") or []))
+    research_profile = (read_json(workspace / "state" / "research.json").get("research_profile") or {})
 
     planning = {
         "restaurant_research_version": plan.get("restaurant_research_version", 3),
         "inventory_contract_version": plan.get("inventory_contract_version", 1),
         "source_snapshots": load_source_snapshots(workspace, task_results),
+        "research_profile": research_profile,
         **{name: normalized.get(name, []) for name in OUTPUT_COLLECTIONS},
         "booking_tasks": booking_tasks,
     }

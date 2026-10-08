@@ -142,6 +142,47 @@ class AssembleItineraryTest(unittest.TestCase):
         with self.assertRaisesRegex(assemble_itinerary.AssemblyError, "缺少选定实体"):
             assemble_itinerary.assemble(self.workspace, self.plan_path)
 
+    def test_rejects_generated_candidate_before_agent_review(self) -> None:
+        self.plan["workflow"]["plan_status"] = "candidate"
+        write_json(self.plan_path, self.plan)
+        with self.assertRaisesRegex(assemble_itinerary.AssemblyError, "仍是 candidate"):
+            assemble_itinerary.assemble(self.workspace, self.plan_path)
+
+    def test_carries_research_profile_and_road_trip_collections(self) -> None:
+        write_json(self.workspace / "results" / "road-trip.json", {
+            "task_id": "road-trip",
+            "source_snapshot_ids": [],
+            "entities": {
+                "vehicles": [{"id": "vehicle-1"}],
+                "road_trip_plans": [{"id": "drive-1", "vehicle_id": "vehicle-1"}],
+                "rental_options": [],
+                "parking_locations": [{"id": "parking-1"}],
+            },
+        })
+        research = json.loads((self.workspace / "state" / "research.json").read_text(encoding="utf-8"))
+        research["research_profile"] = {
+            "schema_version": "travel-research-profile/v1",
+            "modules": ["transport.core", "transport.self_drive"],
+        }
+        write_json(self.workspace / "state" / "research.json", research)
+        self.plan["research_state_sha256"] = hashlib.sha256(
+            (self.workspace / "state" / "research.json").read_bytes()
+        ).hexdigest()
+        self.plan["collections"]["vehicles"] = {
+            "task": "road-trip", "path": "entities.vehicles", "ids": ["vehicle-1"]
+        }
+        self.plan["collections"]["road_trip_plans"] = {
+            "task": "road-trip", "path": "entities.road_trip_plans", "ids": ["drive-1"]
+        }
+        self.plan["collections"]["parking_locations"] = {
+            "task": "road-trip", "path": "entities.parking_locations", "ids": ["parking-1"]
+        }
+        write_json(self.plan_path, self.plan)
+
+        result = assemble_itinerary.assemble(self.workspace, self.plan_path)
+        self.assertEqual(result["planning"]["research_profile"]["modules"], ["transport.core", "transport.self_drive"])
+        self.assertEqual(result["planning"]["road_trip_plans"][0]["id"], "drive-1")
+
     def test_deep_merge_replaces_lists_and_merges_objects(self) -> None:
         result = assemble_itinerary.deep_merge(
             {"nested": {"keep": 1, "replace": 2}, "items": [1, 2]},

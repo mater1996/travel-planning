@@ -244,6 +244,28 @@ def render_facts(items: list[tuple[str, Any]]) -> str:
     return f'<dl class="event-facts">{rows}</dl>' if rows else ""
 
 
+def format_distance(value: Any) -> str:
+    """Format route length for quick traveler scanning."""
+    if value is None or value == "":
+        return ""
+    try:
+        meters = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if meters < 1000:
+        return f"{meters:g} 米"
+    return f"{meters / 1000:.1f} 公里"
+
+
+def day_anchor_text(day: dict[str, Any]) -> str:
+    """Return the declared daily start and end as one visible route summary."""
+    start = day.get("start_anchor") or {}
+    end = day.get("end_anchor") or {}
+    if not start.get("name") or not end.get("name"):
+        return ""
+    return f'{start["name"]} → {end["name"]}'
+
+
 def actionable_reservation(value: Any) -> str | None:
     """Return only reservation guidance that can change an advance plan."""
     text = str(value or "").strip()
@@ -332,12 +354,29 @@ def amap_nearby_restaurant_action(meal: dict[str, Any]) -> dict[str, Any] | None
     }
 
 
-def render_restaurant_route_leg(leg: dict[str, Any]) -> str:
+def restaurant_route_leg_url(leg: dict[str, Any], mode: str) -> str:
+    """Build an AMap route link whose endpoint titles survive desktop redirects."""
+    origin = leg.get("origin") or {}
+    destination = leg.get("destination") or {}
+    if origin.get("coordinates") and destination.get("coordinates"):
+        return amap_embed_url({
+            "from": origin.get("name") or "起点",
+            "to": destination.get("name") or "终点",
+            "map_route": {
+                "origin": origin["coordinates"],
+                "destination": destination["coordinates"],
+                "mode": mode,
+            },
+        })
+    return str(leg.get("map_url") or "")
+
+
+def render_restaurant_route_leg(leg: dict[str, Any], mode: str) -> str:
     """Render an explicit route endpoint pair with its map link in the heading."""
     origin = leg.get("origin") or {}
     destination = leg.get("destination") or {}
     route_label = f'{esc(origin.get("name"))} → {esc(destination.get("name"))}'
-    map_url = str(leg.get("map_url") or "")
+    map_url = restaurant_route_leg_url(leg, mode)
     if map_url.startswith("https://"):
         route_heading = f'<a class="restaurant-route-link" href="{esc(map_url)}" target="_blank" rel="noopener noreferrer" title="在高德查看路线"><strong>{route_label} ↗</strong></a>'
     else:
@@ -404,9 +443,10 @@ def render_restaurant_candidate(
         visual = render_event_images(normalized[:2], str(restaurant.get("name") or "餐厅实景"))
     preview_actions = [{"type": "image_source", "label": item.get("alt") or "查看餐厅相册", "provider": item.get("source_label"), "url": item.get("source_url")} for item in media if item.get("kind") == "link_preview"]
     route_legs = []
+    route_mode = str((route_evaluation.get("comparison_basis") or {}).get("mode") or "walk")
     for leg_name in ("from_previous", "to_next"):
         leg = route_evaluation.get(leg_name) or {}
-        route_legs.append(render_restaurant_route_leg(leg))
+        route_legs.append(render_restaurant_route_leg(leg, route_mode))
     route_facts = render_facts([
         ("路线对比", f'候选总计{route_evaluation.get("total_door_to_door_minutes")}分钟 · 基准{route_evaluation.get("baseline_door_to_door_minutes")}分钟 · 额外绕行{route_evaluation.get("detour_minutes")}分钟'),
         ("营业", operations.get("opening_hours")),
@@ -1524,10 +1564,14 @@ def render_inventory_refs(
             f'<a href="{esc(link)}" target="_blank" rel="noopener noreferrer">查看供应商结果 ↗</a>'
             if link else ""
         )
+        refresh_label = {
+            "departure": "出发前重新核验运行状态",
+            "use": "使用前重新核验",
+        }.get(freshness.get("refresh_before"), "购买前重新核验价格与库存")
         rows.append(
             f'''<li><strong>{esc(provider.get("name"))} · {esc(item.get("name"))}</strong>
             <span>{esc(price_text or "本次未返回可解析价格")} · 查询于 {esc(freshness.get("checked_at"))}</span>
-            <small>有效至 {esc(freshness.get("expires_at"))} · 下单前重新核验</small>{action}</li>'''
+            <small>{esc(refresh_label)}</small>{action}</li>'''
         )
     if not rows:
         return ""
@@ -1613,6 +1657,7 @@ def render_overview_event(
     elif kind == "transport" and route:
         facts.extend([
             overview_fact("方式", route.get("mode") or event.get("transport_mode")),
+            overview_fact("距离", format_distance(route.get("distance_meters"))),
             overview_fact("线路", route.get("route") or route.get("service_or_train")),
             overview_fact("门到门", route.get("door_to_door_duration") or event.get("duration")),
             overview_fact("费用", route.get("cost") or route.get("fare") or event.get("cost_summary") or event.get("cost")),
@@ -1689,7 +1734,11 @@ def render_overview(
         day_meta = " · ".join(
             str(value) for value in [day.get("label") or f"D{index + 1}", day.get("date"), day.get("title")] if value
         )
-        summary = " · ".join(str(value) for value in [day.get("summary"), day.get("weather"), day.get("cost_summary")] if value)
+        summary = " · ".join(
+            str(value)
+            for value in [day_anchor_text(day), day.get("summary"), day.get("weather"), day.get("cost_summary")]
+            if value
+        )
         rows = []
         for event in day.get("events") or []:
             rows.append(render_overview_event(
@@ -1813,6 +1862,7 @@ def render_event(
         context_html = render_facts([
             ("交通方式", route.get("mode") or event.get("transport_mode")),
             ("起终点", f'{route.get("from") or ""} → {route.get("to") or ""}'),
+            ("距离", format_distance(route.get("distance_meters"))),
             ("线路", route.get("route")),
             ("门到门", route.get("door_to_door_duration")),
             ("费用", route.get("cost")),
@@ -1903,8 +1953,10 @@ def render_day(
         ))
     weather = f'<p class="day-weather">{esc(day.get("weather"))}</p>' if day.get("weather") else ""
     cost = f'<p class="day-cost">{esc(day.get("cost_summary"))}</p>' if day.get("cost_summary") else ""
+    anchor_route = day_anchor_text(day)
+    anchor_route_html = f'<p class="day-anchor-route"><b>起终点</b>{esc(anchor_route)}</p>' if anchor_route else ""
     return f'''<section class="day" id="day-{day_idx}">
-      <header class="day-heading"><span class="day-dot" aria-hidden="true"></span><div class="day-heading-content"><div><span class="eyebrow">{esc(day.get("label") or f"D{day_idx + 1}")} · {esc(day.get("date"))}</span><h2>{esc(day.get("title"))}</h2>{weather}{cost}</div><p>{esc(day.get("summary"))}</p></div></header>
+      <header class="day-heading"><span class="day-dot" aria-hidden="true"></span><div class="day-heading-content"><div><span class="eyebrow">{esc(day.get("label") or f"D{day_idx + 1}")} · {esc(day.get("date"))}</span><h2>{esc(day.get("title"))}</h2>{anchor_route_html}{weather}{cost}</div><p>{esc(day.get("summary"))}</p></div></header>
       {''.join(events) if events else '<p class="empty">这一天还没有安排。</p>'}</section>'''
 
 
@@ -1941,7 +1993,7 @@ def build(data: dict[str, Any]) -> str:
 <style>
 :root{{--yellow:#ffd92f;--ink:#20201d;--muted:#6f706b;--line:#e7e5de;--paper:#fff;--wash:#f6f5f0;--accent:#ff6b35;--shadow:0 8px 26px rgba(40,38,25,.09)}}*{{box-sizing:border-box}}html{{scroll-behavior:smooth}}body{{margin:0;background:var(--wash);color:var(--ink);font:15px/1.6 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}}a{{color:inherit}}button{{font:inherit}}.hero{{position:sticky;top:0;z-index:20;background:var(--yellow);box-shadow:0 2px 14px rgba(60,52,0,.12)}}.hero-inner{{max-width:980px;margin:auto;padding:18px 24px 0}}.kicker{{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}}h1{{font-size:clamp(25px,5vw,42px);line-height:1.08;margin:6px 0 7px}}.trip-subtitle{{margin:0;font-weight:650}}.meta{{margin:5px 0 14px;font-size:13px;color:#554b00}}.tabs{{display:flex;gap:8px;overflow:auto;padding:0 0 12px;scrollbar-width:none}}.tabs::-webkit-scrollbar{{display:none}}.day-tab{{min-width:112px;border:0;border-radius:13px;padding:9px 12px;background:rgba(255,255,255,.52);text-align:left;cursor:pointer;color:#574e0c}}.day-tab strong,.day-tab span{{display:block}}.day-tab span{{font-size:11px;opacity:.75}}.day-tab.active{{background:#24231f;color:#fff}}main{{max-width:840px;margin:28px auto;padding:0 22px 80px}}.overview,.sources{{background:#fff;border-radius:18px;padding:20px 22px;box-shadow:var(--shadow);margin-bottom:24px}}.overview h2,.sources h2{{font-size:17px;margin:0 0 8px}}.assumption-list{{margin:0;padding-left:20px;color:var(--muted)}}.day{{scroll-margin-top:170px;margin-bottom:42px}}.day-heading{{display:flex;align-items:end;justify-content:space-between;gap:20px;margin:0 0 14px 106px}}.day-heading h2{{margin:2px 0 0;font-size:24px;line-height:1.2}}.day-heading p{{margin:0;color:var(--muted);text-align:right}}.day-weather,.day-cost{{text-align:left!important;font-size:12px;margin-top:4px!important}}.day-weather{{color:#35627c!important}}.day-cost{{color:#8a521f!important}}.eyebrow{{font-size:12px;color:var(--accent);font-weight:800;letter-spacing:.08em}}.event{{display:grid;grid-template-columns:82px 24px 1fr;align-items:stretch}}.time{{padding:22px 12px 0 0;text-align:right;font-variant-numeric:tabular-nums}}.time strong{{display:block}}.end-time{{display:block;font-size:11px;color:var(--muted)}}.rail{{position:relative;display:flex;justify-content:center}}.rail:before{{content:"";position:absolute;width:2px;background:var(--line);top:0;bottom:0}}.dot{{position:relative;z-index:1;margin-top:22px;width:25px;height:25px;border:2px solid #fff;border-radius:50%;display:grid;place-items:center;background:#24231f;color:#fff;font-size:11px;box-shadow:0 0 0 2px var(--line)}}.card{{background:var(--paper);border-radius:18px;padding:18px;margin:0 0 14px 13px;box-shadow:var(--shadow);min-width:0}}.card-top{{display:flex;justify-content:space-between;gap:12px;align-items:center}}.type-label{{font-size:11px;font-weight:800;color:var(--accent);letter-spacing:.08em}}.map-link{{font-size:12px;color:#5c5d58;text-decoration:none}}.card h3{{font-size:19px;line-height:1.25;margin:8px 0 3px}}.subtitle{{color:var(--muted);margin:0 0 12px}}.image-strip{{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;margin:13px 0;overflow:hidden;border-radius:12px;background:#ecebe6;min-height:150px}}.image-strip img{{width:100%;height:150px;object-fit:cover}}.event-facts{{margin:13px 0 0;border-top:1px solid var(--line);padding-top:9px}}.event-facts>div{{display:grid;grid-template-columns:92px 1fr;gap:10px;padding:4px 0}}.event-facts dt{{font-weight:750;font-size:12px}}.event-facts dd{{margin:0;color:#565752;font-size:13px}}.route-map{{margin-top:13px;border:1px solid #d7e4dc;background:#f7fbf8;border-radius:13px;padding:11px}}.route-map-head{{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}}.route-map-head span,.route-map-head strong{{display:block}}.route-map-head span{{font-size:11px;color:#557364;font-weight:800}}.route-map-head strong{{font-size:13px}}.route-map-link{{flex:none;padding:6px 9px;border-radius:8px;background:#167743;color:#fff;text-decoration:none;font-size:12px;font-weight:750}}.route-map-frame,.route-map-config{{display:block;width:100%;height:240px;border:0;border-radius:10px;background:#e7eee9}}.route-map-config{{display:grid;place-content:center;text-align:center;color:#53615a;padding:18px}}.route-map-config span{{font-size:12px}}.route-map>p{{margin:7px 2px 0;color:#66706b;font-size:11px}}.cost-breakdown{{margin-top:13px;border:1px solid #eadfb2;background:#fffdf4;border-radius:12px;padding:11px 12px}}.cost-breakdown h4{{margin:0 0 6px;font-size:13px}}.cost-breakdown ul{{list-style:none;margin:0;padding:0}}.cost-row{{display:flex;justify-content:space-between;gap:12px;border-top:1px dashed #ded6b6;padding:7px 0}}.cost-row span,.cost-summary{{display:block;color:var(--muted);font-size:11px;margin:0}}.cost-value{{text-align:right;white-space:nowrap}}.cost-summary{{border-top:1px solid #ded6b6;padding-top:7px;color:#72511a;font-weight:700}}.event-notes{{margin-top:13px;border-top:1px solid var(--line);padding-top:9px}}.event-notes section+section{{margin-top:10px}}.event-notes h4{{margin:0;font-size:13px}}.actions{{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}}.action-link{{display:inline-flex;align-items:center;min-height:44px;border:0;padding:7px 10px;border-radius:9px;background:#24231f;color:#fff;text-decoration:none;font-size:12px;font-weight:700;cursor:pointer}}.action-link:hover{{background:#000}}.action-link-wechat{{background:#168347}}.wechat-account-status{{align-self:center;color:#3f6250;font-size:11px}}.detail-list,.tip-list{{padding-left:20px;margin:9px 0;color:#52534f}}.tip-list{{background:#fff8d4;border-radius:10px;padding:9px 12px 9px 30px}}.sources ul{{padding-left:20px;margin:0}}.sources li{{margin:8px 0}}.sources li span{{display:block;color:var(--muted);font-size:12px}}.footer{{text-align:center;color:var(--muted);font-size:12px;padding-top:8px}}:focus-visible{{outline:3px solid #1668dc;outline-offset:3px}}
 /* Dates and times are compact markers in one continuous timeline. */
-.hero{{position:relative;top:auto}}.hero-inner{{padding-bottom:18px}}.day{{position:relative;scroll-margin-top:24px;margin-bottom:42px}}.day:before{{content:"";position:absolute;left:11px;top:18px;bottom:-30px;width:2px;background:var(--line)}}.day:last-of-type:before{{bottom:18px}}.day-heading{{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr);gap:14px;align-items:start;margin:0 0 14px}}.day-dot{{position:relative;z-index:1;width:18px;height:18px;margin:5px 0 0 3px;border:4px solid var(--wash);border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px #f0a184}}.day-heading-content{{display:flex;align-items:end;justify-content:space-between;gap:20px;min-width:0}}.day-heading h2{{margin:2px 0 0;font-size:24px;line-height:1.2}}.day-heading p{{margin:0;color:var(--muted);text-align:right}}.event{{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr);gap:14px;align-items:start}}.event-body{{min-width:0}}.rail{{position:relative;display:flex;justify-content:center}}.rail:before{{display:none}}.dot{{margin-top:7px;width:24px;height:24px}}.time{{display:flex;align-items:baseline;gap:4px;min-height:31px;padding:4px 0 6px;text-align:left;font-variant-numeric:tabular-nums;color:var(--ink)}}.time strong{{display:inline;font-size:13px}}.end-time{{display:inline;font-size:11px;color:var(--muted)}}.card{{margin:0 0 18px;padding:18px}}
+.hero{{position:relative;top:auto}}.hero-inner{{padding-bottom:18px}}.day{{position:relative;scroll-margin-top:24px;margin-bottom:42px}}.day:before{{content:"";position:absolute;left:11px;top:18px;bottom:-30px;width:2px;background:var(--line)}}.day:last-of-type:before{{bottom:18px}}.day-heading{{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr);gap:14px;align-items:start;margin:0 0 14px}}.day-dot{{position:relative;z-index:1;width:18px;height:18px;margin:5px 0 0 3px;border:4px solid var(--wash);border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px #f0a184}}.day-heading-content{{display:flex;align-items:end;justify-content:space-between;gap:20px;min-width:0}}.day-heading h2{{margin:2px 0 0;font-size:24px;line-height:1.2}}.day-heading p{{margin:0;color:var(--muted);text-align:right}}.day-heading .day-anchor-route{{margin-top:7px;text-align:left;font-size:12px;color:#4f514c}}.day-anchor-route b{{display:inline-block;margin-right:7px;color:#17643d;font-size:10px;letter-spacing:.08em}}.event{{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr);gap:14px;align-items:start}}.event-body{{min-width:0}}.rail{{position:relative;display:flex;justify-content:center}}.rail:before{{display:none}}.dot{{margin-top:7px;width:24px;height:24px}}.time{{display:flex;align-items:baseline;gap:4px;min-height:31px;padding:4px 0 6px;text-align:left;font-variant-numeric:tabular-nums;color:var(--ink)}}.time strong{{display:inline;font-size:13px}}.end-time{{display:inline;font-size:11px;color:var(--muted)}}.card{{margin:0 0 18px;padding:18px}}
 @media(max-width:620px){{.hero-inner{{padding:14px}}h1{{font-size:27px}}.meta{{white-space:normal}}main{{padding:0 10px 60px;margin-top:18px}}.overview,.planning{{margin:0 4px 20px}}.research-grid,.summary-grid{{grid-template-columns:1fr}}.day:before{{left:10px}}.day-heading,.event{{grid-template-columns:22px minmax(0,1fr);gap:9px}}.day-heading-content{{display:block}}.day-heading p{{text-align:left;margin-top:4px}}.day-dot{{margin-left:2px}}.dot{{width:21px;height:21px;font-size:9px}}.time{{padding-top:2px}}.time strong{{font-size:12px}}.card{{margin-left:0;padding:15px 13px;border-radius:15px}}.card h3{{font-size:17px}}.image-strip,.image-strip img{{height:118px;min-height:118px}}}}
 @media print{{.hero{{position:static}}.tabs,.map-link{{display:none}}body{{background:#fff}}main{{max-width:none}}.card,.overview,.sources{{box-shadow:none;border:1px solid #ddd}}.event,.card{{break-inside:avoid}}}}@media(prefers-reduced-motion:reduce){{html{{scroll-behavior:auto}}}}
 .image-item{{position:relative;margin:0;min-width:0}}.image-item>a{{display:block;height:100%}}.image-item figcaption{{position:absolute;left:6px;right:6px;bottom:6px;padding:4px 6px;border-radius:6px;background:rgba(0,0,0,.68);color:#fff;font-size:10px;line-height:1.35}}.community-refs{{margin-top:13px;border-top:1px solid var(--line);padding-top:9px}}.community-refs h4{{margin:0;font-size:13px}}.community-refs>p{{margin:2px 0 8px;color:var(--muted);font-size:11px}}.community-refs>div{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}}.community-card{{display:block;border:1px solid #eadfe2;border-radius:10px;background:#fff8fa;padding:9px;text-decoration:none;min-width:0}}.community-card strong,.community-card span,.community-card small{{display:block}}.community-card strong{{font-size:12px;line-height:1.45}}.community-card span,.community-card small{{margin-top:3px;color:var(--muted);font-size:10px}}@media(max-width:620px){{.route-map-head{{align-items:flex-start;flex-direction:column}}.community-refs>div{{grid-template-columns:1fr}}}}

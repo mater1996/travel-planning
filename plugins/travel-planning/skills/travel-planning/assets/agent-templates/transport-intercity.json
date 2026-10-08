@@ -1,0 +1,16 @@
+{
+  "schema_version": "travel-research-result/v2",
+  "template_version": 1,
+  "template_digest": "COPY_FROM_ASSIGNMENT",
+  "task_id": "COPY_FROM_ASSIGNMENT",
+  "status": "complete",
+  "input_revision": "COPY_FROM_ASSIGNMENT",
+  "summary": "",
+  "source_snapshot_ids": [],
+  "entities": {"transport_edges": [], "intercity_options": [], "route_anchors": []},
+  "shared_entities": [],
+  "event_bindings": [],
+  "constraints": [],
+  "unresolved": [],
+  "source_ids": []
+}

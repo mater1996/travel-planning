@@ -32,7 +32,7 @@ class SetupXhsMcpTest(unittest.TestCase):
                 result = setup_xhs_mcp.status(Namespace())
         self.assertEqual(result["status"], "installed")
         self.assertEqual(result["provider"], "xpzouying/xiaohongshu-mcp")
-        self.assertEqual(result["version"], "v2.5.0")
+        self.assertEqual(result["version"], "v2.5.2")
         self.assertEqual(result["commit"], setup_xhs_mcp.UPSTREAM_COMMIT)
         self.assertTrue(result["assets_verified"]["server"])
         self.assertFalse(result["service"]["healthy"])

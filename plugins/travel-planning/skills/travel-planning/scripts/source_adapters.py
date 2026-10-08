@@ -864,6 +864,7 @@ def make_snapshot(
     ).hexdigest()[:24]
     snapshot_kind = "quote" if tool in QUOTE_TOOLS else "lookup" if tool in LOOKUP_TOOLS else "operational"
     expires_after = {"quote": 30, "operational": 15, "lookup": 24 * 60}[snapshot_kind]
+    refresh_before = {"quote": "purchase", "operational": "departure", "lookup": "use"}[snapshot_kind]
     expires_at = (
         datetime.fromisoformat(captured).astimezone() + timedelta(minutes=expires_after)
     ).isoformat(timespec="seconds")
@@ -883,7 +884,13 @@ def make_snapshot(
         "product_type": product_type,
         "tool": tool,
         "query": {key: value for key, value in query.items() if value not in (None, "")},
-        "freshness": {"checked_at": captured, "expires_at": expires_at, "dynamic": True},
+        "freshness": {
+            "checked_at": captured,
+            "expires_at": expires_at,
+            "dynamic": True,
+            "planning_validity": "historical_snapshot",
+            "refresh_before": refresh_before,
+        },
         "items": items,
         "count": len(items),
         "raw_response_hash": raw_hash,

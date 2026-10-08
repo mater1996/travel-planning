@@ -38,7 +38,7 @@
       },
       "additionalProperties": false
     },
-    "product_type": {"enum": ["flight", "train", "hotel", "air_rail_transfer", "train_station"]},
+    "product_type": {"enum": ["flight", "train", "hotel", "car_rental", "air_rail_transfer", "train_station"]},
     "tool": {"type": "string", "minLength": 1},
     "query": {"type": "object"},
     "freshness": {
@@ -47,7 +47,9 @@
       "properties": {
         "checked_at": {"type": "string", "format": "date-time"},
         "expires_at": {"type": "string", "format": "date-time"},
-        "dynamic": {"const": true}
+        "dynamic": {"const": true},
+        "planning_validity": {"const": "historical_snapshot"},
+        "refresh_before": {"enum": ["purchase", "departure", "use"]}
       },
       "additionalProperties": false
     },

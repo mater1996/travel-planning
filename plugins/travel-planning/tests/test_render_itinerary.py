@@ -60,6 +60,12 @@ class RenderItineraryTest(unittest.TestCase):
         self.assertNotIn("dayObserver", html)
         self.assertIn(".event{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr)", html)
 
+    def test_day_endpoints_and_transport_distances_are_visible(self) -> None:
+        html = render_itinerary.build(self.load_example())
+        self.assertIn('<p class="day-anchor-route"><b>起终点</b>龙翔桥附近酒店 → 龙翔桥附近酒店</p>', html)
+        self.assertIn('<dt>距离</dt><dd>900 米</dd>', html)
+        self.assertIn('<dt>距离</dt><dd>7.0 公里</dd>', html)
+
     def test_page_can_switch_between_detail_and_dense_overview(self) -> None:
         html = render_itinerary.build(self.load_example())
         self.assertIn('id="itinerary-view-controls"', html)
@@ -110,10 +116,10 @@ class RenderItineraryTest(unittest.TestCase):
         self.assertIn("龙翔桥附近酒店", route_view[first_day:second_day])
         self.assertIn("湖滨公园入口", route_view[first_day:second_day])
         self.assertIn("断桥东侧", route_view[first_day:second_day])
-        self.assertIn("灵隐片区", route_view[first_day:second_day])
-        self.assertIn("4 个站点 · 1 条路线", route_view[first_day:second_day])
+        self.assertIn("灵隐杭帮面馆 A", route_view[first_day:second_day])
+        self.assertIn("6 个站点 · 1 条路线", route_view[first_day:second_day])
         self.assertIn("龙井村—午餐—酒店片区", route_view[second_day:])
-        self.assertIn("3 个站点 · 1 条路线", route_view[second_day:])
+        self.assertIn("4 个站点 · 1 条路线", route_view[second_day:])
         self.assertEqual(route_view.count('class="route-map"'), 2)
         self.assertEqual(route_view.count('class="route-map-frame"'), 2)
         self.assertIn("via%5B0%5D%5Blnglat%5D=120.156800%2C30.254900", route_view)
@@ -476,8 +482,12 @@ class RenderItineraryTest(unittest.TestCase):
         self.assertIn("浙江省杭州市西湖区灵隐路88号A座 → 浙江省杭州市西湖区灵隐路117号下午路线入口", html)
         self.assertIn('class="restaurant-route-link"', html)
         self.assertIn('title="在高德查看路线"><strong>灵隐片区上一站出口 → 灵隐杭帮面馆 A ↗</strong>', html)
-        self.assertEqual(html.count("灵隐片区上一站出口 → 灵隐杭帮面馆 A"), 1)
-        self.assertEqual(html.count("灵隐杭帮面馆 A → 下午路线入口"), 1)
+        self.assertIn("https://ditu.amap.com/dir?type=walk", html)
+        self.assertIn("from%5Bname%5D=%E7%81%B5%E9%9A%90%E7%89%87%E5%8C%BA%E4%B8%8A%E4%B8%80%E7%AB%99%E5%87%BA%E5%8F%A3", html)
+        self.assertIn("to%5Bname%5D=%E7%81%B5%E9%9A%90%E6%9D%AD%E5%B8%AE%E9%9D%A2%E9%A6%86+A", html)
+        meal_section = html.split('data-meal-id="m1"', 1)[1].split("</section>", 1)[0]
+        self.assertEqual(meal_section.count("灵隐片区上一站出口 → 灵隐杭帮面馆 A"), 1)
+        self.assertEqual(meal_section.count("灵隐杭帮面馆 A → 下午路线入口"), 1)
         self.assertNotIn("<dt>从上一站</dt>", html)
         self.assertNotIn("<dt>去下一站</dt>", html)
         self.assertIn("查看灵隐杭帮面馆 A 官方相册", html)
@@ -681,7 +691,8 @@ class RenderItineraryTest(unittest.TestCase):
 
     def test_confirmed_meal_requires_research_reference(self) -> None:
         data = self.load_example()
-        data["days"][0]["events"][3].pop("meal_id")
+        meal_event = next(event for event in data["days"][0]["events"] if event.get("meal_id") == "m1")
+        meal_event.pop("meal_id")
         with self.assertRaisesRegex(ValueError, "必须引用有效的 meal_id"):
             render_itinerary.validate_data(data)
 

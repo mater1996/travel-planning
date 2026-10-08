@@ -1,0 +1,237 @@
+{
+  "schema_version": "travel-research-module-registry/v1",
+  "stage_guides": {
+    "restaurant_discovery": [
+      "references/dining/discovery.md",
+      "references/dining/operations.md"
+    ],
+    "meal_route_evaluation": [
+      "references/dining/route-evaluation.md"
+    ],
+    "restaurant_ranking": [
+      "references/dining/ranking.md"
+    ]
+  },
+  "modules": [
+    {
+      "id": "attractions.core",
+      "kind": "core",
+      "domain": "attractions",
+      "applies_to_domains": ["attraction", "attractions"],
+      "depends_on": [],
+      "guide": "references/attractions/index.md",
+      "triggers": {"always_for_domain": true},
+      "schema_refs": [],
+      "completion_checks": ["attraction_identity", "dated_operations", "entry_exit", "checkpoint_route"]
+    },
+    {
+      "id": "attractions.museum_venue",
+      "kind": "profile",
+      "domain": "attractions",
+      "applies_to_domains": ["attraction", "attractions"],
+      "depends_on": ["attractions.core"],
+      "guide": "references/attractions/museum-venue.md",
+      "triggers": {"attraction_types": ["museum_venue"]},
+      "schema_refs": [],
+      "completion_checks": ["venue_schedule", "security_storage"]
+    },
+    {
+      "id": "attractions.scenic_area",
+      "kind": "profile",
+      "domain": "attractions",
+      "applies_to_domains": ["attraction", "attractions"],
+      "depends_on": ["attractions.core"],
+      "guide": "references/attractions/scenic-area.md",
+      "triggers": {"attraction_types": ["scenic_area"]},
+      "schema_refs": [],
+      "completion_checks": ["scenic_internal_transport", "scenic_exit_plan"]
+    },
+    {
+      "id": "attractions.mountain_outdoor",
+      "kind": "profile",
+      "domain": "attractions",
+      "applies_to_domains": ["attraction", "attractions"],
+      "depends_on": ["attractions.core"],
+      "guide": "references/attractions/mountain-outdoor.md",
+      "triggers": {"attraction_types": ["mountain_outdoor"]},
+      "schema_refs": [],
+      "completion_checks": ["route_difficulty", "latest_retreat", "weather_fallback"]
+    },
+    {
+      "id": "attractions.theme_park",
+      "kind": "profile",
+      "domain": "attractions",
+      "applies_to_domains": ["attraction", "attractions"],
+      "depends_on": ["attractions.core"],
+      "guide": "references/attractions/theme-park.md",
+      "triggers": {"attraction_types": ["theme_park"]},
+      "schema_refs": [],
+      "completion_checks": ["ride_restrictions", "queue_strategy"]
+    },
+    {
+      "id": "attractions.performance_night",
+      "kind": "profile",
+      "domain": "attractions",
+      "applies_to_domains": ["attraction", "attractions"],
+      "depends_on": ["attractions.core"],
+      "guide": "references/attractions/performance-night.md",
+      "triggers": {"attraction_types": ["performance_night"]},
+      "schema_refs": [],
+      "completion_checks": ["fixed_session", "night_return"]
+    },
+    {
+      "id": "attractions.urban_walk",
+      "kind": "profile",
+      "domain": "attractions",
+      "applies_to_domains": ["attraction", "attractions"],
+      "depends_on": ["attractions.core"],
+      "guide": "references/attractions/urban-walk.md",
+      "triggers": {"attraction_types": ["urban_walk"]},
+      "schema_refs": [],
+      "completion_checks": ["walk_scope", "walk_wayfinding", "checkpoint_content", "duration_breakdown", "walk_exit_plan"]
+    },
+    {
+      "id": "transport.core",
+      "kind": "core",
+      "domain": "transport",
+      "applies_to_domains": ["transport", "route-data", "transport-intercity", "transport-local", "road-trip"],
+      "depends_on": [],
+      "guide": "references/transport/index.md",
+      "triggers": {"always_for_domain": true},
+      "schema_refs": [],
+      "completion_checks": ["door_to_door_route", "cost_basis", "fallback"]
+    },
+    {
+      "id": "transport.flight",
+      "kind": "profile",
+      "domain": "transport",
+      "applies_to_domains": ["transport", "route-data", "transport-intercity"],
+      "depends_on": ["transport.core"],
+      "guide": "references/transport/flight.md",
+      "triggers": {"transport_modes": ["flight"]},
+      "schema_refs": ["schemas/travel-source-snapshot.schema.json"],
+      "completion_checks": ["airport_terminal", "flight_baggage", "airport_transfer"]
+    },
+    {
+      "id": "transport.rail",
+      "kind": "profile",
+      "domain": "transport",
+      "applies_to_domains": ["transport", "route-data", "transport-intercity"],
+      "depends_on": ["transport.core"],
+      "guide": "references/transport/rail.md",
+      "triggers": {"transport_modes": ["rail"]},
+      "schema_refs": ["schemas/travel-source-snapshot.schema.json"],
+      "completion_checks": ["rail_station", "rail_sale_window", "rail_verification"]
+    },
+    {
+      "id": "transport.public_transit",
+      "kind": "profile",
+      "domain": "transport",
+      "applies_to_domains": ["transport", "route-data", "transport-local"],
+      "depends_on": ["transport.core"],
+      "guide": "references/transport/public-transit.md",
+      "triggers": {"transport_modes": ["public_transit"]},
+      "schema_refs": [],
+      "completion_checks": ["transit_stops", "last_service"]
+    },
+    {
+      "id": "transport.self_drive",
+      "kind": "profile",
+      "domain": "transport",
+      "applies_to_domains": ["transport", "route-data", "transport-intercity", "transport-local", "road-trip"],
+      "depends_on": ["transport.core"],
+      "guide": "references/transport/self-drive.md",
+      "triggers": {"transport_modes": ["self_drive"]},
+      "schema_refs": ["schemas/road-trip-plan.schema.json"],
+      "completion_checks": ["driver_eligibility", "driving_duration", "road_restrictions", "parking_coverage", "fuel_or_charging_plan"]
+    },
+    {
+      "id": "transport.car_rental",
+      "kind": "profile",
+      "domain": "transport",
+      "applies_to_domains": ["transport", "route-data", "transport-intercity", "road-trip"],
+      "depends_on": ["transport.self_drive"],
+      "guide": "references/transport/car-rental.md",
+      "triggers": {"scenarios": ["car_rental"]},
+      "schema_refs": ["schemas/car-rental-option.schema.json"],
+      "completion_checks": ["rental_driver_requirements", "rental_pickup_return", "rental_insurance", "rental_deposit"]
+    },
+    {
+      "id": "transport.charter_driver",
+      "kind": "profile",
+      "domain": "transport",
+      "applies_to_domains": ["transport", "route-data", "transport-intercity", "transport-local"],
+      "depends_on": ["transport.core"],
+      "guide": "references/transport/charter-driver.md",
+      "triggers": {"transport_modes": ["charter_driver"]},
+      "schema_refs": [],
+      "completion_checks": ["charter_credentials", "charter_quote_boundary"]
+    },
+    {
+      "id": "transport.coach_ferry",
+      "kind": "profile",
+      "domain": "transport",
+      "applies_to_domains": ["transport", "route-data", "transport-intercity"],
+      "depends_on": ["transport.core"],
+      "guide": "references/transport/coach-ferry.md",
+      "triggers": {"transport_modes": ["coach_ferry"]},
+      "schema_refs": [],
+      "completion_checks": ["operator_terminal", "service_disruption_fallback"]
+    },
+    {
+      "id": "dining.core",
+      "kind": "core",
+      "domain": "dining",
+      "applies_to_domains": ["restaurant", "restaurants", "restaurant-research", "meal-windows", "stay-food", "stay_food"],
+      "depends_on": [],
+      "guide": "references/dining/index.md",
+      "triggers": {"always_for_domain": true},
+      "schema_refs": ["schemas/restaurant.schema.json", "schemas/restaurant-source-snapshot.schema.json"],
+      "completion_checks": ["meal_window", "candidate_policy", "primary_fallback"]
+    },
+    {
+      "id": "dining.driving_parking",
+      "kind": "profile",
+      "domain": "dining",
+      "applies_to_domains": ["restaurant", "restaurants", "restaurant-research"],
+      "depends_on": ["dining.core"],
+      "guide": "references/dining/operations.md",
+      "triggers": {"scenarios": ["driving_parking"]},
+      "schema_refs": ["schemas/restaurant-source-snapshot.schema.json"],
+      "completion_checks": ["restaurant_parking", "parking_to_restaurant"]
+    },
+    {
+      "id": "dining.constrained_venue",
+      "kind": "profile",
+      "domain": "dining",
+      "applies_to_domains": ["restaurant", "restaurants", "restaurant-research"],
+      "depends_on": ["dining.core"],
+      "guide": "references/dining/constrained-scenarios.md",
+      "triggers": {"scenarios": ["constrained_venue"]},
+      "schema_refs": ["schemas/restaurant.schema.json"],
+      "completion_checks": ["constrained_search_scope", "emergency_food_fallback"]
+    },
+    {
+      "id": "lodging.core",
+      "kind": "core",
+      "domain": "lodging",
+      "applies_to_domains": ["lodging", "stay-food", "stay_food"],
+      "depends_on": [],
+      "guide": "references/lodging/index.md",
+      "triggers": {"always_for_domain": true},
+      "schema_refs": ["schemas/travel-source-snapshot.schema.json"],
+      "completion_checks": ["lodging_identity", "occupancy", "stay_nights", "luggage_path"]
+    },
+    {
+      "id": "lodging.inventory_occupancy",
+      "kind": "profile",
+      "domain": "lodging",
+      "applies_to_domains": ["lodging", "stay-food", "stay_food"],
+      "depends_on": ["lodging.core"],
+      "guide": "references/lodging/inventory-and-occupancy.md",
+      "triggers": {"scenarios": ["lodging_inventory", "multi_room", "late_arrival", "lodging_self_drive"]},
+      "schema_refs": ["schemas/travel-source-snapshot.schema.json"],
+      "completion_checks": ["inventory_offer_binding", "occupancy_capacity", "arrival_or_parking_fallback"]
+    }
+  ]
+}

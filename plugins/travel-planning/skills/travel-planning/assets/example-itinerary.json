@@ -19,6 +19,7 @@
     {"id": "proposal-1", "title": "杭州两日慢游", "cities": ["杭州"], "pace": "舒缓", "status": "confirmed"}
   ],
   "planning": {
+    "route_continuity_version": 1,
     "restaurant_research_version": 3,
     "route_strategy": "第一天沿西湖东岸向北移动，第二天集中安排西南侧茶山，减少折返并为返程留出缓冲。",
     "readiness": [
@@ -74,7 +75,8 @@
           {"name": "湖滨步行", "fee_type": "free", "price": "免费", "required": true},
           {"name": "游船", "fee_type": "paid_optional", "price": "以现场公告为准", "required": false}
         ],
-        "entrance": {"name": "湖滨公园入口", "reason": "距离地铁站近，适合作为步行起点", "exit": "断桥", "location_query": "杭州湖滨公园"},
+        "entrance": {"name": "湖滨公园入口", "coordinates": "120.156800,30.254900", "reason": "距离地铁站近，适合作为步行起点", "location_query": "杭州湖滨公园"},
+        "exit": {"name": "断桥东侧", "coordinates": "120.148270,30.263600", "location_query": "杭州断桥残雪"},
         "confidence": "medium",
         "action_links": [
           {"type": "map", "label": "打开湖滨导航", "provider": "地图", "url": "https://maps.google.com/", "checked_at": "2026-09-20", "disclaimer": "路线以出发时实时导航为准"}
@@ -101,7 +103,8 @@
           {"name": "茶山轻徒步", "fee_type": "free", "price": "免费", "required": true},
           {"name": "茶馆体验", "fee_type": "paid_optional", "price": "按店铺实际消费", "required": false}
         ],
-        "entrance": {"name": "龙井村公交站附近", "reason": "公共交通到达后即可开始步行", "exit": "龙井村公交站附近", "location_query": "杭州龙井村公交站"},
+        "entrance": {"name": "龙井村公交站附近", "coordinates": "120.104000,30.223000", "reason": "公共交通到达后即可开始步行", "location_query": "杭州龙井村公交站"},
+        "exit": {"name": "龙井村公交站附近", "coordinates": "120.104000,30.223000", "location_query": "杭州龙井村公交站"},
         "confidence": "medium",
         "source_ids": []
       }
@@ -114,6 +117,7 @@
         "mode": "步行",
         "route": "沿平海路向西到湖滨",
         "door_to_door_duration": "约 10–20 分钟",
+        "distance_meters": 900,
         "cost": "免费",
         "recommended": true,
         "reason": "距离短且无需等待车辆",
@@ -126,33 +130,137 @@
       {
         "id": "r2",
         "from": "断桥",
-        "to": "灵隐片区",
+        "to": "灵隐片区上一站出口",
         "mode": "公交或网约车",
         "route": "按实时路况选择公交或网约车",
         "door_to_door_duration": "约 35–50 分钟",
+        "distance_meters": 7000,
         "cost": "约 ¥5–45（估算）",
         "recommended": true,
         "reason": "减少跨片区步行",
         "fallback": "出租车",
         "live_status": "出发当天用地图复核",
-        "map_route": {"origin": "120.148270,30.263600", "destination": "120.102000,30.240000", "mode": "car", "assumption": "演示坐标，出发当天按实际上下车点重算"},
-        "action_links": [{"type": "map", "label": "在高德查看断桥至灵隐路线", "provider": "高德地图", "url": "https://uri.amap.com/navigation?from=120.148270,30.263600,断桥&to=120.102000,30.240000,灵隐片区&mode=car&policy=0&src=travel-planning&callnative=0"}],
+        "map_route": {"origin": "120.148270,30.263600", "destination": "120.100000,30.240000", "mode": "car", "assumption": "演示坐标，出发当天按实际上下车点重算"},
+        "action_links": [{"type": "map", "label": "在高德查看断桥至灵隐路线", "provider": "高德地图", "url": "https://uri.amap.com/navigation?from=120.148270,30.263600,断桥&to=120.100000,30.240000,灵隐片区上一站出口&mode=car&policy=0&src=travel-planning&callnative=0"}],
         "source_ids": []
       },
       {
         "id": "r3",
-        "from": "龙井村公交站附近",
-        "to": "酒店及返程车站",
+        "from": "龙井村返程上车点",
+        "to": "龙翔桥附近酒店",
         "mode": "公交/地铁或打车",
         "route": "先回酒店取行李，再前往返程车站",
         "door_to_door_duration": "建议预留 90 分钟",
+        "distance_meters": 7200,
         "cost": "待实时查询",
         "recommended": true,
         "reason": "携带行李且需要保证返程时间",
         "fallback": "全程打车",
         "live_status": "出发当天复核",
         "map_route": {"origin": "120.104000,30.223000", "destination": "120.165438,30.255247", "mode": "car", "assumption": "演示终点为酒店片区；酒店和返程车站确定后拆段重算"},
-        "action_links": [{"type": "map", "label": "在高德查看龙井村至酒店片区路线", "provider": "高德地图", "url": "https://uri.amap.com/navigation?from=120.104000,30.223000,龙井村&to=120.165438,30.255247,龙翔桥酒店片区&mode=car&policy=0&src=travel-planning&callnative=0"}],
+        "action_links": [{"type": "map", "label": "在高德查看返程上车点至酒店片区路线", "provider": "高德地图", "url": "https://uri.amap.com/navigation?from=120.104000,30.223000,龙井村返程上车点&to=120.165438,30.255247,龙翔桥酒店片区&mode=car&policy=0&src=travel-planning&callnative=0"}],
+        "source_ids": []
+      },
+      {
+        "id": "r4",
+        "from": "下午路线入口",
+        "to": "龙翔桥附近酒店",
+        "mode": "公交/地铁或打车",
+        "route": "从灵隐片区下午路线入口返回酒店休息",
+        "door_to_door_duration": "约 40–55 分钟",
+        "distance_meters": 7000,
+        "cost": "约 ¥6–45（估算）",
+        "recommended": true,
+        "reason": "闭合当天路线并回到住宿点",
+        "fallback": "全程打车",
+        "live_status": "出发当天复核",
+        "map_route": {"origin": "120.110000,30.240000", "destination": "120.165438,30.255247", "mode": "car", "assumption": "演示坐标，按实际酒店入口重算"},
+        "action_links": [{"type": "map", "label": "在高德查看下午路线入口至酒店路线", "provider": "高德地图", "url": "https://uri.amap.com/navigation?from=120.110000,30.240000,下午路线入口&to=120.165438,30.255247,龙翔桥酒店片区&mode=car&policy=0&src=travel-planning&callnative=0"}],
+        "source_ids": []
+      },
+      {
+        "id": "r5",
+        "from": "龙翔桥附近酒店",
+        "to": "龙井村公交站附近",
+        "mode": "公交/地铁或打车",
+        "route": "从酒店前往龙井村公交站附近",
+        "door_to_door_duration": "约 45–60 分钟",
+        "distance_meters": 9000,
+        "cost": "约 ¥8–55（估算）",
+        "recommended": true,
+        "reason": "把次日住宿起点与首个景点入口衔接起来",
+        "fallback": "全程打车",
+        "live_status": "出发当天复核",
+        "map_route": {"origin": "120.165438,30.255247", "destination": "120.104000,30.223000", "mode": "car", "assumption": "演示坐标，按实际酒店入口重算"},
+        "action_links": [{"type": "map", "label": "在高德查看酒店至龙井村路线", "provider": "高德地图", "url": "https://uri.amap.com/navigation?from=120.165438,30.255247,龙翔桥酒店片区&to=120.104000,30.223000,龙井村公交站&mode=car&policy=0&src=travel-planning&callnative=0"}],
+        "source_ids": []
+      },
+      {
+        "id": "r6",
+        "from": "龙井村公交站附近",
+        "to": "龙井村农家菜 A",
+        "mode": "步行",
+        "route": "从徒步出口沿公共道路步行至午餐点",
+        "door_to_door_duration": "约 8 分钟",
+        "distance_meters": 300,
+        "cost": "免费",
+        "recommended": true,
+        "reason": "午餐点虽在同片区，仍明确给出可执行的最后一段步行",
+        "fallback": "按店铺定位从公交站附近重新导航",
+        "live_status": "出发当天复核",
+        "map_route": {"origin": "120.104000,30.223000", "destination": "120.103500,30.223500", "mode": "walk", "assumption": "演示坐标，按餐厅实际入口重算"},
+        "action_links": [{"type": "map", "label": "在高德查看徒步出口至午餐点路线", "provider": "高德地图", "url": "https://uri.amap.com/navigation?from=120.104000,30.223000,龙井村公交站&to=120.103500,30.223500,龙井村农家菜A&mode=walk&policy=0&src=travel-planning&callnative=0"}],
+        "source_ids": []
+      },
+      {
+        "id": "r7",
+        "from": "灵隐杭帮面馆 A",
+        "to": "下午路线入口",
+        "mode": "步行",
+        "route": "午餐后沿灵隐路步行至下午路线入口",
+        "door_to_door_duration": "约 13 分钟",
+        "distance_meters": 680,
+        "cost": "免费",
+        "recommended": true,
+        "reason": "采用主选餐厅研究中的离店腿",
+        "fallback": "按下午路线入口定位重新导航",
+        "live_status": "出发当天复核",
+        "map_route": {"origin": "120.102000,30.240000", "destination": "120.110000,30.240000", "mode": "walk", "assumption": "采用主选餐厅离店路线锚点"},
+        "action_links": [{"type": "map", "label": "在高德查看餐厅至下午路线入口", "provider": "高德地图", "url": "https://uri.amap.com/navigation?from=120.102000,30.240000,灵隐杭帮面馆A&to=120.110000,30.240000,下午路线入口&mode=walk&policy=0&src=travel-planning&callnative=0"}],
+        "source_ids": []
+      },
+      {
+        "id": "r8",
+        "from": "龙井村农家菜 A",
+        "to": "龙井村返程上车点",
+        "mode": "步行",
+        "route": "午餐后沿公共道路步行至返程上车点",
+        "door_to_door_duration": "约 11 分钟",
+        "distance_meters": 500,
+        "cost": "免费",
+        "recommended": true,
+        "reason": "采用主选餐厅研究中的离店腿",
+        "fallback": "按返程上车点定位重新导航",
+        "live_status": "出发当天复核",
+        "map_route": {"origin": "120.103500,30.223500", "destination": "120.104000,30.223000", "mode": "walk", "assumption": "采用主选餐厅离店路线锚点"},
+        "action_links": [{"type": "map", "label": "在高德查看餐厅至返程上车点", "provider": "高德地图", "url": "https://uri.amap.com/navigation?from=120.103500,30.223500,龙井村农家菜A&to=120.104000,30.223000,龙井村返程上车点&mode=walk&policy=0&src=travel-planning&callnative=0"}],
+        "source_ids": []
+      },
+      {
+        "id": "r9",
+        "from": "灵隐片区上一站出口",
+        "to": "灵隐杭帮面馆 A",
+        "mode": "步行",
+        "route": "下车后步行至主选午餐门店",
+        "door_to_door_duration": "约 9 分钟",
+        "distance_meters": 420,
+        "cost": "免费",
+        "recommended": true,
+        "reason": "采用主选餐厅研究中的进店腿",
+        "fallback": "按餐厅定位从下车点重新导航",
+        "live_status": "出发当天复核",
+        "map_route": {"origin": "120.100000,30.240000", "destination": "120.102000,30.240000", "mode": "walk", "assumption": "采用主选餐厅进店路线锚点"},
+        "action_links": [{"type": "map", "label": "在高德查看下车点至午餐门店", "provider": "高德地图", "url": "https://uri.amap.com/navigation?from=120.100000,30.240000,灵隐片区上一站出口&to=120.102000,30.240000,灵隐杭帮面馆A&mode=walk&policy=0&src=travel-planning&callnative=0"}],
         "source_ids": []
       }
     ],
@@ -167,7 +275,9 @@
           {"event_id": "e-d1-r1", "name": "龙翔桥附近酒店", "coordinates": "120.165438,30.255247", "coordinate_system": "GCJ-02", "note": "出发"},
           {"event_id": "e-d1-a1", "name": "湖滨公园入口", "coordinates": "120.156800,30.254900", "coordinate_system": "GCJ-02"},
           {"event_id": "e-d1-a1", "name": "断桥东侧", "coordinates": "120.148270,30.263600", "coordinate_system": "GCJ-02"},
-          {"event_id": "e-d1-m1", "name": "灵隐片区", "coordinates": "120.102000,30.240000", "coordinate_system": "GCJ-02", "note": "午餐与后续游览"}
+          {"event_id": "e-d1-m1", "name": "灵隐杭帮面馆 A", "coordinates": "120.102000,30.240000", "coordinate_system": "GCJ-02", "note": "午餐"},
+          {"event_id": "e-d1-rest", "name": "下午路线入口", "coordinates": "120.110000,30.240000", "coordinate_system": "GCJ-02", "note": "短暂休息"},
+          {"event_id": "e-d1-r4", "name": "龙翔桥附近酒店", "coordinates": "120.165438,30.255247", "coordinate_system": "GCJ-02", "note": "当天终点"}
         ]
       },
       {
@@ -177,6 +287,7 @@
         "mode": "car",
         "assumption": "用于串联当天全部停靠点的导览顺序；步行和返程交通仍按详细行程执行。",
         "stops": [
+          {"event_id": "e-d2-r5", "name": "龙翔桥附近酒店", "coordinates": "120.165438,30.255247", "coordinate_system": "GCJ-02", "note": "当天起点"},
           {"event_id": "e-d2-a2", "name": "龙井村公交站附近", "coordinates": "120.104000,30.223000", "coordinate_system": "GCJ-02", "note": "徒步起终点"},
           {"event_id": "e-d2-m2", "name": "龙井村午餐点", "coordinates": "120.103500,30.223500", "coordinate_system": "GCJ-02"},
           {"event_id": "e-d2-r3", "name": "龙翔桥酒店片区", "coordinates": "120.165438,30.255247", "coordinate_system": "GCJ-02", "note": "取行李"}
@@ -308,6 +419,8 @@
       "label": "D1 · 周六",
       "title": "西湖经典线",
       "summary": "从湖滨一路慢走到北山街",
+      "start_anchor": {"name": "龙翔桥附近酒店", "coordinates": "120.165438,30.255247", "coordinate_system": "GCJ-02"},
+      "end_anchor": {"name": "龙翔桥附近酒店", "coordinates": "120.165438,30.255247", "coordinate_system": "GCJ-02"},
       "events": [
         {
           "id": "e-d1-r1",
@@ -368,6 +481,17 @@
           "cost": "约 ¥5–45/车（估算）"
         },
         {
+          "id": "e-d1-r9",
+          "time": "12:00",
+          "end_time": "12:10",
+          "type": "transport",
+          "route_id": "r9",
+          "title": "灵隐片区下车点 → 午餐门店",
+          "subtitle": "步行进店",
+          "duration": "门到门约 9 分钟",
+          "cost": "免费"
+        },
+        {
           "id": "e-d1-m1",
           "time": "12:10",
           "end_time": "13:10",
@@ -377,6 +501,37 @@
           "subtitle": "预留排队与休息时间",
           "cost": "约 ¥60–120/人（估算）",
           "reservation": "热门店建议预约"
+        },
+        {
+          "id": "e-d1-r7",
+          "time": "13:20",
+          "end_time": "13:35",
+          "type": "transport",
+          "route_id": "r7",
+          "title": "灵隐午餐点 → 下午路线入口",
+          "subtitle": "步行衔接",
+          "duration": "门到门约 13 分钟",
+          "cost": "免费"
+        },
+        {
+          "id": "e-d1-rest",
+          "time": "13:35",
+          "end_time": "14:00",
+          "type": "rest",
+          "title": "下午路线入口短暂休息",
+          "location": {"name": "下午路线入口", "coordinates": "120.110000,30.240000", "coordinate_system": "GCJ-02"},
+          "subtitle": "整理补给后返店"
+        },
+        {
+          "id": "e-d1-r4",
+          "time": "14:00",
+          "end_time": "14:50",
+          "type": "transport",
+          "route_id": "r4",
+          "title": "下午路线入口 → 酒店",
+          "subtitle": "公交/地铁或打车返回",
+          "duration": "约 40–55 分钟",
+          "cost": "约 ¥6–45（估算）"
         }
       ]
     },
@@ -385,7 +540,20 @@
       "label": "D2 · 周日",
       "title": "茶山与返程",
       "summary": "减少景点数量，给返程留足缓冲",
+      "start_anchor": {"name": "龙翔桥附近酒店", "coordinates": "120.165438,30.255247", "coordinate_system": "GCJ-02"},
+      "end_anchor": {"name": "龙翔桥附近酒店", "coordinates": "120.165438,30.255247", "coordinate_system": "GCJ-02"},
       "events": [
+        {
+          "id": "e-d2-r5",
+          "time": "08:20",
+          "end_time": "09:20",
+          "type": "transport",
+          "route_id": "r5",
+          "title": "酒店 → 龙井村公交站附近",
+          "subtitle": "公交/地铁或打车前往",
+          "duration": "约 45–60 分钟",
+          "cost": "约 ¥8–55（估算）"
+        },
         {
           "id": "e-d2-a2",
           "time": "09:30",
@@ -423,6 +591,17 @@
           "preparation": ["只走公共道路，不进入未开放或私人茶园"]
         },
         {
+          "id": "e-d2-r6",
+          "time": "12:00",
+          "end_time": "12:10",
+          "type": "transport",
+          "route_id": "r6",
+          "title": "徒步出口 → 龙井村午餐点",
+          "subtitle": "沿公共道路步行",
+          "duration": "门到门约 8 分钟",
+          "cost": "免费"
+        },
+        {
           "id": "e-d2-m2",
           "time": "12:10",
           "end_time": "13:10",
@@ -431,6 +610,17 @@
           "title": "龙井村附近午餐",
           "subtitle": "徒步后就近补给，不为网红店折返",
           "cost": "约 ¥70–130/人（估算）"
+        },
+        {
+          "id": "e-d2-r8",
+          "time": "13:10",
+          "end_time": "13:25",
+          "type": "transport",
+          "route_id": "r8",
+          "title": "龙井村午餐点 → 返程上车点",
+          "subtitle": "沿公共道路步行",
+          "duration": "门到门约 11 分钟",
+          "cost": "免费"
         },
         {
           "id": "e-d2-r3",

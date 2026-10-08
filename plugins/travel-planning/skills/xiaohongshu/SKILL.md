@@ -5,7 +5,7 @@ description: 通过插件固定版本的 xpzouying/xiaohongshu-mcp 使用小红�
 
 # 小红书 MCP
 
-本 Skill 路由已注册的 `xiaohongshu-mcp` Streamable HTTP 工具。上游是非官方自动化项目，固定为 `v2.5.0`；它自带独立浏览器，不读取或控制用户的 Chrome。
+本 Skill 路由已注册的 `xiaohongshu-mcp` Streamable HTTP 工具。上游是非官方自动化项目，固定为 `v2.5.2`；它自带独立浏览器，不读取或控制用户的 Chrome。
 
 ## 首次使用
 
@@ -36,5 +36,6 @@ python3 skills/xiaohongshu/scripts/setup.py start
 5. 只归档公开原帖链接、标题、作者、发布时间、必要摘要和查询时间；不复制整篇笔记、评论全集、未授权图片或临时媒体地址。
 6. 控制请求频率。遇到验证码、设备验证、风控或账号提示立即停止，由用户本人处理，不重试绕过。
 7. 同一小红书账号不要同时登录其他网页端，否则上游保存的登录态可能被挤下线；手机 App 可正常使用。
+8. `v2.5.2` 的网页筛选浮层不可靠地支持一次连续点击多个条件。搜索时省略页面默认值，只传一个真正需要的非默认筛选；旅行轻量预研默认仅传 `publish_time=半年内`，保留页面默认综合排序与不限类型。需要比较其他维度时拆成有上限的独立查询，不在一次 `filters` 中叠加。
 
 工具名和参数边界见 `references/tool-routing.md`；版本、发布包校验值和许可证见 `references/upstream.lock.json` 与 `references/NOTICE.md`。

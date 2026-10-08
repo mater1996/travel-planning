@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://travel-planning.local/schemas/car-rental-option.schema.json",
+  "type": "object",
+  "required": ["id", "vehicle_id", "pickup", "return", "driver_requirements", "price", "deposit", "insurance", "fuel_or_charge_policy", "mileage_policy", "cancellation", "source_ids"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "vehicle_id": {"type": "string", "minLength": 1},
+    "pickup": {"$ref": "#/$defs/rentalEndpoint"},
+    "return": {"$ref": "#/$defs/rentalEndpoint"},
+    "driver_requirements": {"type": "object"},
+    "price": {"type": "object"},
+    "deposit": {"type": "object"},
+    "insurance": {"type": "object"},
+    "fuel_or_charge_policy": {"type": "object"},
+    "mileage_policy": {"type": "object"},
+    "cancellation": {"type": "object"},
+    "source_ids": {"type": "array", "items": {"type": "string"}},
+    "inventory_refs": {"type": "array", "items": {"type": "object"}}
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "rentalEndpoint": {
+      "type": "object",
+      "required": ["location", "event_at", "opening_hours"],
+      "properties": {
+        "location": {"type": "object"},
+        "event_at": {"type": "string", "format": "date-time"},
+        "opening_hours": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

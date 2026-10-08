@@ -9,29 +9,47 @@ description: 调研和规划需要可靠动态信息的旅行，比较路线与�
 
 ## 路线确认门槛
 
-1. 只收集会显著影响方案的信息：出发地、目的地、日期或天数、人数、预算、节奏、兴趣、住宿位置和硬性限制。除日期、目的地或无障碍安全风险外，缺失信息可用明确的低风险假设补齐。
-2. 生成路线方案前，对已配置且可用的小红书做一次有上限的目的地轻量预研，提取近期反复出现的玩法、时段、避坑和地方美食主题；只把它们作为路线比较上下文，不在此阶段研究或推荐具体门店。来源不可用时记录原因并继续，不为这一步安装工具、要求登录或阻断路线确认。
-3. 深度调研前给出 2～3 个路线方案，说明城市顺序、停留天数、主要交通、预算区间、节奏、亮点和风险，并标明哪些取舍受社区体验信号影响。
-4. 让用户选择、合并或调整路线。除非用户明确要求“直接按你推荐的做”，否则不得跳过等待确认。
-5. 路线确认前不虚构精确车次、余票、库存或实时价格，也不启动逐景点、逐餐厅的大规模研究；上述小红书轻量预研是唯一允许的社区研究例外。
+1. 只收集会显著改变方案的出发地、目的地、日期或天数、人数、预算、节奏、兴趣、住宿位置和硬性限制。日期、目的地或无障碍安全风险之外的缺失信息可用明确的低风险假设补齐。
+2. 小红书已配置且可用时，路线候选前执行一次有上限的目的地轻量预研，只提取近期反复出现的玩法、时段、避坑和地方美食主题。来源不可用时记录原因并继续。
+3. 深度调研前给出 2 至 3 个路线方案，说明城市顺序、停留、主要交通、预算、节奏、亮点和风险。
+4. 等待用户选择、合并或调整。只有用户明确要求直接采用推荐路线时才跳过等待。
+5. 路线确认前不虚构班次、余票、库存或实时价格，不启动逐景点、逐门店研究。
 
-## 执行路由
+路线候选阶段只读取[标准规划流水线](references/core/planning-pipeline.md)的路线阶段和[地图、天气与社区研究](references/tools/maps-weather-community.md)的小红书轻量预研部分。
 
-路线候选阶段先读取[标准规划流水线](references/planning-pipeline.md)的第 0 阶段和[实时数据工具](references/live-data-tools.md)的“小红书路线前轻量预研”；路线确认后再完整读取流水线并按当前阶段读取下列资料。不要为当前任务加载无关 reference。
+## 渐进读取
 
-| 场景 | 必读资料 |
+路线确认后，`research_workspace.py select-route` 生成本次 `research-profile.json`。Assignment 根据 `registries/research-modules.json` 自动固化 `required_modules`、`required_guides`、`schema_refs` 和 `completion_checks`。
+
+需要人工判断文档入口时先看[参考资料总入口](references/index.md)。每个领域用 `index.md` 说明目录内所有关联文件、读取条件和依赖顺序；运行时模块 ID 仍使用 `*.core`，它表示领域公共契约，不表示文件名必须叫 `core.md`。
+
+Agent 按以下顺序读取，不遍历无关 reference：
+
+1. assignment 的 `read_first`；
+2. `required_guides` 中的领域基础模块；
+3. 本次激活的方式、类型和场景 profile；
+4. 依赖任务结果、结果模板和 `schema_refs`。
+
+| 当前任务 | 必读入口 |
 | --- | --- |
-| 研究景点、出入口、内部顺序和交通边 | [景点与路线研究](references/research-workflow.md) |
-| 选择来源、处理冲突或自动查询失败 | [信息获取与核验策略](references/source-strategy.md) |
-| 查询航班、铁路、住宿、地图、天气或小红书 | [实时数据工具](references/live-data-tools.md)；小红书工具操作遵循 `$xiaohongshu` |
-| 研究正餐候选和双向绕行 | [餐厅候选研究与路线适配](references/restaurant-research.md) |
-| 判断是否拆分、分配任务和检查完成门槛 | [子 Agent 编排](references/agent-orchestration.md) |
-| 创建 workspace、归档来源或提交任务结果 | [行程研究工作区](references/research-workspace.md) |
-| 检查境外、行李、特殊人群和分阶段复核 | [行前就绪检查](references/trip-readiness.md) |
-| 创建或修改 `itinerary.json` | [行程数据结构](references/itinerary-schema.md) |
-| 渲染或检查页面 | [交互页面规范](references/interactive-page.md) |
+| 景点身份、运营、入口出口和内部顺序 | [景点研究入口](references/attractions/index.md)，再读 assignment 激活的景点类型 profile |
+| 老街、古城、市场、街区串游或 Citywalk | [城市漫游](references/attractions/urban-walk.md)；路线的 `research_features.attraction_types[]` 必须包含 `urban_walk` |
+| 城际或本地交通 | [交通研究入口](references/transport/index.md)，再读 flight、rail、public-transit、self-drive、charter 等已激活 profile |
+| 租车自驾 | 同时读取 [自驾](references/transport/self-drive.md)与[租车](references/transport/car-rental.md)；租车是车辆取得，自驾是执行方式 |
+| 正餐研究 | [餐饮研究入口](references/dining/index.md)，再按 discovery、operations、route-evaluation、ranking 阶段读取对应文件 |
+| 住宿 | [住宿研究入口](references/lodging/index.md)；动态报价和多间容量再读 inventory-and-occupancy |
+| 来源冲突和动态事实 | [证据与动态事实](references/core/evidence-policy.md) |
+| workspace、任务提交和合并 | [研究工作区入口](references/workspace/index.md)，只读当前动作对应文件 |
+| 行前与横切风险 | [行前就绪](references/core/readiness.md) |
+| 多 Agent 拆分、波次或验收 | [Agent 编排入口](references/orchestration/index.md) |
+| 最终装配和数据结构 | [输出与交付入口](references/output/index.md)，先读 plan contract，再按需读 itinerary contract |
+| 页面渲染或页面问题 | [输出与交付入口](references/output/index.md)，只读 structure、interactions 或 browser acceptance 中相关文件 |
 
-深度规划开始前运行真实数据源预检，并按路线追加必需来源：
+查询航班、铁路、住宿、地图、天气或小红书时先读[实时数据工具入口](references/tools/index.md)，再只读取对应 provider 或 fallback 文件。飞猪通用发现使用 `$flyai`，中国境内地点与路线使用 `$amap-maps`，航班运行、价格、铁路和空铁联运使用 `$variflight`，小红书体验研究使用 `$xiaohongshu`。
+
+## 深度研究
+
+路线确认后先运行真实数据源预检，并为本次必需来源传入 `--require`：
 
 ```bash
 python3 skills/travel-planning/scripts/research_sources.py preflight \
@@ -39,56 +57,40 @@ python3 skills/travel-planning/scripts/research_sources.py preflight \
   --require <source>
 ```
 
-预检必须完成 MCP `initialize`、`tools/list`、只读上游探测、天气请求及适用的小红书运行态检查；静态 `capabilities` 结果不能替代。必需来源失败时，先按实时数据工具中的合法 fallback 修复或降级，不得启动依赖该来源的研究任务。
+预检必须完成 MCP `initialize`、`tools/list`、只读上游探测、天气请求及适用的小红书运行态检查；静态 capabilities 不能代替。必需来源失败时先修复或声明合法 fallback。
 
-已配置的只读来源在路线确认后可直接查询，不逐次请求同意；路线确认前仅可执行有上限的小红书目的地轻量预研。飞猪通用发现使用 `$flyai`，中国境内地点与路线使用 `$amap-maps`，航班运行、价格、铁路和空铁联运使用 `$variflight`，小红书体验研究使用 `$xiaohongshu`。这项默认不包含安装新工具、配置新付费凭证、下单、占座、付款、发送消息或修改订单。
+复杂行程按[Agent 编排入口](references/orchestration/index.md)分波次执行。子 Agent 只提交 assignment 允许的实体、快照引用、事件绑定、约束、未解决项和来源；主 Agent 独占城市顺序、采用决策、冲突裁决、最终 JSON 和页面。
 
-## 不可违反的约束
+老街、古城、市场和连续街区不是一句“慢走”即可交付的自由文本。只要它占用一个游览时间窗或串联两个以上命名地点，就按 `urban_walk` 景点研究，落为 `attraction` 事件并给出入口、出口、按序 checkpoints、每站看什么或做什么、站间移动、可跳过项和退出条件。若无法研究出这些内容，应缩短为无结束时间的提示或明确的自由休息，不得用 `note` 填满大段时间。
 
-- 对开放时间、临时关闭、票价、库存、班次、天气、签证和交通规则等时效信息，使用适用日期的实时来源，记录 `checked_at` 和网址，并区分官方事实、平台快照、社区体验与估算。
-- 景区官网、运营方和政府渠道确认开放、票价、入口和规则；社区内容只支持当季体验、拥挤、玩法、餐厅体感和避坑，不能单独证明营业、价格、资质或安全。
-- 自动查询失败时提供真实的官方或平台 HTTPS 入口、查询条件、待核字段和复核时间。不得猜测详情深链，也不得用首页、旧缓存或搜索摘要冒充已核验结果。
-- 飞猪和飞常准的完整结果先转换为 `travel-source-snapshot/v1` 并写入任务 `snapshots/`。研究结果只引用 `source_snapshot_ids[]`；采用的交通和住宿候选通过 `inventory_refs[]` 绑定具体 `snapshot_id + offer_id`。供应商原始私有字段不得进入行程层。
-- 中国铁路最终回到 12306 复核；平台候选不代表余票、锁价或出票。酒店供应商未校验多间同房型库存时，只能称为报价候选。
-- 不输出、归档或传递凭证、Cookie、二维码、授权头和临时令牌。遇到登录、验证码、设备验证或风控时停止该来源，由用户本人处理。
-- 未经用户对具体项目、日期、数量、价格及乘客或入住人确认，不提交订单、付款、发送消息或修改预订。页面中的购买、订房和购票控件只负责跳转。
+逐日事件流必须空间闭合。每天声明可定位的 `start_anchor` 与 `end_anchor`；每个有地点的活动都要能从前一活动抵达。前一活动出口与后一活动入口不是同一坐标时，两者之间必须有独立 `transport` 事件，包含准确起终点、距离、方式、门到门时间、地图链接和备选。餐厅候选的 `from_previous` / `to_next` 与顶部每日路线图只是研究和总览，不能代替时间轴中的交通事件；住宿日最后一个活动后必须明确回到住宿。
+
+餐厅研究保持 discovery → route evaluation → ranking 三阶段。值得专程前往的门店先由主 Agent 判断是否重排活动或改变交通，再计算最终双腿路线。
+
+自驾不能只提供高德 `car` 路线。`road-trip` 任务必须覆盖车辆、驾驶员、道路限制、驾驶时长、停车、补能和应急；租车时再覆盖取还车、证件、押金、保险、里程和油电政策。
+
+## 不可违反的边界
+
+- 开放、价格、库存、班次、天气、签证和交通规则等动态事实必须记录查询时间、来源和适用日期，并区分官方事实、平台快照、社区体验与估算。
+- 景区官网、运营方或政府确认开放、价格、入口和安全；社区内容不能单独证明这些事实。
+- 飞猪、飞常准等完整结果先转换为 `travel-source-snapshot/v1`；采用候选通过 `snapshot_id + offer_id` 绑定，不把供应商私有字段写入行程层。
+- 中国铁路最终回到 12306；酒店未核验多间同房型库存时只称报价候选。
+- 登录、验证码、设备验证或风控出现时停止该来源，由用户本人处理。
+- 不输出或归档凭证、Cookie、二维码、授权头和临时令牌。
+- 未经用户确认具体项目、日期、数量、价格及乘客或入住人，不下单、占座、付款、发送消息或修改预订。
 - 不虚构预订结果、实时价格、库存、开放状态或来源；所有估算明确标记。
 
-## 研究与编排
+## 合并、审查与交付
 
-对拟采用的景点研究适用日期的开放与预约、入口和出口、游览时段、内部 checkpoints、费用、补给和最晚离开时间。交通按出口到下一入口计算门到门时间，包含步行、等候、换乘、安检、取行李和缓冲；跨住宿夜明确行李去向。先按硬时间和地理方向排程，再比较价格。
-
-协作能力可用且存在两个以上独立研究域时，深度规划必须并行。多城市、超过 3 天、候选景点超过 8 个，或同时涉及铁路/航班/大巴/包车时，按子 Agent 编排执行；路线建议阶段、用户禁止委派、协作槽位不可用或任务存在硬依赖时除外。子 Agent 只提交 assignment 允许的研究结果、来源、快照和证据；主 Agent 负责路线、合并、冲突裁决、最终 JSON 和页面。
-
-跨 Agent 复用的数据统一写入本次 `.travel-research/<trip-id>/state/research.json`；不建立跨行程缓存。各任务只写自己的结果、来源和快照，`merge` 重新校验后按实体 ID 汇总 `shared_entities[]`，自动合并互补字段、记录冲突，并汇总事件绑定、约束和未解决项。
-
-## 合并与审查
-
-前置采集完成后，按稳定 ID 合并为 `itinerary.json`。先生成只含硬时间、门到门交通、餐窗和最晚离开的候选事件流，立即检查时间空间冲突；无法同时满足时按“换交通方式 → 缩短次要景点 → 取消次要活动”降级，不把冲突留成一句提醒。
-
-主 Agent 将选用实体、逐日事件、时间窗和降级策略写入 `state/itinerary-plan.json`，使用通用装配器生成 `artifacts/itinerary.json`；不得为单次行程编写 Python 装配脚本。生成最终页面前必须满足：
-
-- 每个事件有稳定 `id`，并通过 ID 引用相应景点、交通、住宿、餐饮、天气、预约和费用数据。
-- 景点事件包含结构化开放与预约信息、入口、出口、内部 checkpoints、最晚离开和费用；官方主页、公告、预约入口与实体地址分开。预约主要在微信公众号完成时，另记录已核验的公众号名称、菜单路径和可用的官方说明文章入口。
-- 每个完整旅行日有实际午餐和晚餐事件。正常正餐有 2～3 个可定位候选、系统综合推荐、结构化备选、动态来源、双向路线和切换条件；中国境内缺少点评或美团授权来源时，以高德周边搜索和详情作为候选发现基线，不因社区来源缺失放弃餐厅方案。受限场景记录有来源的例外与应急补给。
-- 餐饮层只保存餐窗、前后锚点、约束、候选引用、主备决策和切换规则；每个前后锚点必须同时具有明确名称、具体地址和坐标。地址、菜品、人均、营业等候选事实只保存在餐厅实体与动态快照中，不复制成餐饮摘要字段。
-- 交通记录准确起终点、门到门时间、费用、备选、行李和需要复核的动态条件；提前规划页面不展示当前拥堵、排队等实时状态。住宿保存人数、房间、床型、连续入住夜及身份核验结果。
-- 天气和预算由被引用的对象或事件派生，不维护另一套脱节的展示数据。未获得的动态字段使用带原因、入口和复核时间的 `to_recheck`，不能裸写“待确认”。
-
-确定性审查至少运行两次：候选事件流完成后检查硬时间与交通，动态候选绑定完成后执行最终审查；随后由独立审查 Agent 检查事实冲突和语义可执行性。阻断项清零后才能渲染最终页面：
+任务完成后先 `merge`，再生成候选计划。主 Agent 只在 `planning-decisions.json` 中复核实体采用、事件顺序、覆盖、删除、补充和降级策略；确认后将 `workflow.plan_status` 设为 `reviewed`。
 
 ```bash
+python3 skills/travel-planning/scripts/generate_itinerary_plan.py --workspace ".travel-research/<trip-id>"
 python3 skills/travel-planning/scripts/assemble_itinerary.py --workspace ".travel-research/<trip-id>"
 python3 skills/travel-planning/scripts/audit_itinerary.py ".travel-research/<trip-id>/artifacts/itinerary.json" --output ".travel-research/<trip-id>/artifacts/audit.json"
 python3 skills/travel-planning/scripts/render_itinerary.py ".travel-research/<trip-id>/artifacts/itinerary.json" ".travel-research/<trip-id>/artifacts/itinerary.html"
 ```
 
-## 页面与交付
+只有 `blocking=[]` 才渲染。普通行程沿用已验收 renderer；只有 renderer、前端资源、可见 DOM/交互发生变化，或用户报告页面问题时才执行完整浏览器验收。仅调整研究说明、输出合同、schema 或 audit 而没有改变实际页面输出时，不做浏览器验收。
 
-顶部另设“路线图”视图。每个旅行日通过 `planning.daily_routes[]` 显式声明一条完整导览路线，把当日住宿、景点、正餐和其他实际停靠点按事件顺序写入 `stops[]`；页面只显示这一张带有序 `via[n]` 途经点的高德路线图，并保留全屏与高德外链。分段出行方式仍以详细行程为准，导览图不得漏掉中间站点，也不得用多张交通段地图代替当天全流程。
-
-逐日时间轴是默认的详细视图，顶部可切换到“时间 / 地点 / 关键信息”三列的高密度行程一览表；一览表按事件类型只摘要展示会改变执行的信息，不复制图片、地图、来源、操作按钮和研究字段。执行所需的开放、入口、路线、天气、门票、费用、预约和备选仍附着到详细视图的对应事件并默认可见；景点的开放规则、预约行动与入口、票价和费用合并在卡片顶部同一个“开放与预约”区，不在下方重复成独立卡片。餐饮事件标题后先展示默认展开的综合推荐，再将结构化备选显示为可横向滚动的完整餐厅卡；备选卡默认展开且可收起，无论 2 家还是 5 家都保持稳定卡宽，不压成多个窄列。每张卡直接展示地址、特色菜、平台评分、小红书证据或搜索入口、营业信息、前后两段路线和高德门店入口，也不在候选前重复渲染自由文本备选。每张餐厅卡的两段路线必须直接展示“起点名称 → 终点名称”、双方具体地址、距离和门到门时间，不得只写“从上一站”或“去下一站”；路线标题本身作为高德入口，不在操作按钮区重复输出同名路线按钮。每张餐厅卡最多保留一个规范化的“在高德查看门店”入口，不另列“导航到店”，不重复来源中的高德别名链接，也不在餐饮卡下方再次输出事件级门店链接；综合推荐的“在高德查看门店”和“在高德查看附近餐厅”统一放在主推荐卡底部。旅行者页面不提供候选排序、页内选择、“已选为本餐”状态、内部评分拆解或长篇切换规则。页面优先适配手机，同时支持桌面、键盘、减少动态效果和打印。图片必须有合法来源和替代文本，没有合适素材时省略；地图始终保留可独立打开的 HTTPS 路线链接。
-
-渲染后分别检查手机和桌面宽度，修复溢出、图片失效、信息过密、时间轴错位和交互降级。交付 `itinerary.html` 与 `itinerary.json`，并总结关键假设、路线理由、需要立即处理的预约及出发前复核项。
-
-最终结果只保留会改变旅行者时间、地点、动作、费用或备选的信息，优先回答几点到、从哪里进、按什么顺序走、最晚何时离开、何时预约、花多少钱、下一段怎么走以及失败时如何调整。
+最终页面只保留会改变旅行者时间、地点、动作、费用或备选的信息，优先回答几点到、从哪里进、按什么顺序、最晚何时离开、何时预约、花多少钱、下一段怎么走以及失败时如何调整。

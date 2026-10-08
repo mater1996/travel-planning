@@ -74,7 +74,7 @@ class AuditItineraryTest(unittest.TestCase):
 
     def test_detects_meal_event_outside_researched_time_window(self) -> None:
         data = self.load_example()
-        meal_event = data["days"][0]["events"][3]
+        meal_event = next(event for event in data["days"][0]["events"] if event.get("meal_id") == "m1")
         meal_event["time"] = "13:20"
         meal_event["end_time"] = "14:20"
         result = audit_itinerary.audit(data)
@@ -86,13 +86,94 @@ class AuditItineraryTest(unittest.TestCase):
         result = audit_itinerary.audit(data)
         self.assertTrue(any("未绑定" in item and "unused-meal" in item for item in result["warnings"]))
 
-    def test_confirmed_plan_warns_when_selected_inventory_snapshot_expired(self) -> None:
+    def test_note_cannot_occupy_an_activity_window(self) -> None:
+        data = self.load_example()
+        data["days"][0]["events"].append({
+            "id": "event-citywalk-as-note",
+            "time": "20:00",
+            "end_time": "22:00",
+            "type": "note",
+            "title": "老街慢走",
+        })
+        result = audit_itinerary.audit(data)
+        self.assertTrue(any("不能用 end_time 占据持续时间窗" in item for item in result["blocking"]))
+
+    def test_event_description_is_blocked_before_renderer_can_drop_it(self) -> None:
+        data = self.load_example()
+        data["days"][0]["events"][0]["description"] = "页面不会展示这段内容"
+        result = audit_itinerary.audit(data)
+        self.assertTrue(any("renderer 不展示的 description" in item for item in result["blocking"]))
+
+    def test_urban_walk_requires_multiple_checkpoints_with_visible_content(self) -> None:
+        data = self.load_example()
+        event = data["days"][0]["events"][1]
+        attraction = data["planning"]["attractions"][0]
+        attraction["attraction_type"] = "urban_walk"
+        event["execution"]["checkpoints"] = [event["execution"]["checkpoints"][0]]
+        event["execution"]["checkpoints"][0].pop("narration", None)
+        result = audit_itinerary.audit(data)
+        self.assertTrue(any("至少需要两个 checkpoints" in item for item in result["blocking"]))
+        self.assertTrue(any("缺少具体现场看点 narration" in item for item in result["blocking"]))
+
+    def test_detects_missing_transport_between_distinct_locations(self) -> None:
+        data = self.load_example()
+        data["days"][1]["events"] = [
+            event for event in data["days"][1]["events"] if event.get("route_id") != "r6"
+        ]
+        result = audit_itinerary.audit(data)
+        self.assertEqual(result["status"], "fail")
+        self.assertTrue(any("两者之间缺少独立交通事件" in item for item in result["blocking"]))
+
+    def test_detects_day_that_does_not_return_to_declared_end_anchor(self) -> None:
+        data = self.load_example()
+        data["days"][0]["events"] = [
+            event for event in data["days"][0]["events"] if event.get("route_id") != "r4"
+        ]
+        result = audit_itinerary.audit(data)
+        self.assertEqual(result["status"], "fail")
+        self.assertTrue(any("end_anchor 与最后地点或交通终点不一致" in item for item in result["blocking"]))
+
+    def test_daily_route_must_bind_every_location_event(self) -> None:
+        data = self.load_example()
+        data["planning"]["daily_routes"][1]["stops"] = [
+            stop for stop in data["planning"]["daily_routes"][1]["stops"]
+            if stop.get("event_id") != "e-d2-m2"
+        ]
+        result = audit_itinerary.audit(data)
+        self.assertEqual(result["status"], "fail")
+        self.assertTrue(any("每日路线图缺少地点事件 stop 绑定" in item for item in result["blocking"]))
+
+    def test_transport_requires_distance_mode_and_fallback(self) -> None:
+        data = self.load_example()
+        route = next(item for item in data["planning"]["transport_edges"] if item["id"] == "r1")
+        route.pop("distance_meters")
+        route.pop("mode")
+        route.pop("fallback")
+        result = audit_itinerary.audit(data)
+        self.assertEqual(result["status"], "fail")
+        self.assertTrue(any("缺少 distance_meters" in item for item in result["blocking"]))
+        self.assertTrue(any("缺少 mode" in item for item in result["blocking"]))
+        self.assertTrue(any("缺少 fallback" in item for item in result["blocking"]))
+
+    def test_selected_restaurant_legs_must_be_timeline_transport_events(self) -> None:
+        data = self.load_example()
+        meal_index = next(
+            index for index, event in enumerate(data["days"][1]["events"])
+            if event.get("meal_id") == "m2"
+        )
+        data["days"][1]["events"][meal_index + 1]["route_id"] = "r3"
+        result = audit_itinerary.audit(data)
+        self.assertEqual(result["status"], "fail")
+        self.assertTrue(any("主选离店路线与相邻交通事件起终点不一致" in item for item in result["blocking"]))
+
+    def test_expired_quote_does_not_affect_planning_delivery(self) -> None:
         data = self.load_example()
         snapshot_id = add_expired_inventory(data)
         result = audit_itinerary.audit(data)
         self.assertEqual(result["status"], "pass")
-        self.assertTrue(any(snapshot_id in item and "已过期" in item for item in result["warnings"]))
+        self.assertFalse(any("已过期" in item for item in result["warnings"]))
         self.assertEqual(result["inventory_audit"]["selected_reference_count"], 1)
+        self.assertEqual(result["inventory_audit"]["purchase_refresh_snapshot_ids"], [snapshot_id])
 
     def test_final_plan_blocks_selected_transport_without_multi_sort_coverage(self) -> None:
         data = self.load_example()
@@ -111,6 +192,26 @@ class AuditItineraryTest(unittest.TestCase):
         self.assertEqual(result["status"], "fail")
         self.assertTrue(any("排序覆盖" in item for item in result["blocking"]))
         self.assertTrue(result["inventory_audit"]["transport_coverage_gaps"])
+
+    def test_self_drive_profile_requires_road_trip_plan(self) -> None:
+        data = self.load_example()
+        data["planning"]["research_profile"] = {"modules": ["transport.core", "transport.self_drive"]}
+        result = audit_itinerary.audit(data)
+        self.assertEqual(result["status"], "fail")
+        self.assertTrue(any("驾车地图路线不能替代自驾审查" in item for item in result["blocking"]))
+
+    def test_valid_road_trip_references_pass_cross_entity_audit(self) -> None:
+        data = self.load_example()
+        data["planning"]["research_profile"] = {"modules": ["transport.core", "transport.self_drive"]}
+        data["planning"]["vehicles"] = [{"id": "vehicle-1"}]
+        data["planning"]["parking_locations"] = [{"id": "parking-1"}]
+        data["planning"]["road_trip_plans"] = [{
+            "id": "drive-1", "vehicle_id": "vehicle-1", "route_edge_ids": ["r1"],
+            "parking_stops": [{"stop_id": "museum", "parking_location_id": "parking-1"}],
+        }]
+        result = audit_itinerary.audit(data)
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["road_trip_audit"]["plan_count"], 1)
 
 
 if __name__ == "__main__":

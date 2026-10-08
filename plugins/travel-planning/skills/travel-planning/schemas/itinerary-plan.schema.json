@@ -30,10 +30,22 @@
         "phase": {
           "enum": ["confirmed_planning", "final"]
         },
+        "plan_status": {
+          "enum": ["candidate", "reviewed"],
+          "description": "Generated plans stay candidate until the main Agent reviews planning decisions."
+        },
         "selected_route_id": {
           "type": "string",
           "minLength": 1
         }
+      }
+    },
+    "generation": {
+      "type": "object",
+      "properties": {
+        "generator": {"const": "generate_itinerary_plan.py"},
+        "mode": {"const": "candidate_plus_decisions"},
+        "pending_decisions": {"type": "array", "items": {"type": "object"}}
       }
     },
     "route_proposals": {
@@ -81,6 +93,7 @@
     "planning": {
       "type": "object",
       "properties": {
+        "route_continuity_version": {"type": "integer", "minimum": 1},
         "daily_routes": {
           "type": "array",
           "items": {"$ref": "#/$defs/dailyRoute"}
@@ -95,17 +108,11 @@
         "required": ["date", "events"],
         "properties": {
           "date": {"type": "string", "format": "date"},
+          "start_anchor": {"$ref": "#/$defs/routeAnchor"},
+          "end_anchor": {"$ref": "#/$defs/routeAnchor"},
           "events": {
             "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["type"],
-              "properties": {
-                "type": {
-                  "enum": ["attraction", "transport", "meal", "lodging", "rest", "note"]
-                }
-              }
-            }
+            "items": {"$ref": "#/$defs/scheduledEvent"}
           }
         }
       }
@@ -116,6 +123,37 @@
     }
   },
   "$defs": {
+    "routeAnchor": {
+      "type": "object",
+      "required": ["name", "coordinates"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "physical_address": {"type": "string", "minLength": 1},
+        "coordinates": {"type": "string", "pattern": "^-?[0-9]+(?:\\.[0-9]+)?,-?[0-9]+(?:\\.[0-9]+)?$"},
+        "coordinate_system": {"const": "GCJ-02"}
+      }
+    },
+    "scheduledEvent": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "time": {"type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$"},
+        "end_time": {"type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$"},
+        "type": {"enum": ["attraction", "transport", "meal", "lodging", "rest", "note"]},
+        "title": {"type": "string", "minLength": 1},
+        "subtitle": {"type": "string", "minLength": 1},
+        "details": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "tips": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "allOf": [
+        {"not": {"required": ["description"]}},
+        {
+          "if": {"properties": {"type": {"const": "note"}}, "required": ["type"]},
+          "then": {"not": {"required": ["end_time"]}}
+        }
+      ]
+    },
     "collectionBinding": {
       "type": "object",
       "required": ["path"],

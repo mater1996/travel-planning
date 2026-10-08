@@ -299,6 +299,21 @@ class SourceAdaptersTest(unittest.TestCase):
             source_adapters.datetime.fromisoformat(result["freshness"]["expires_at"]),
             source_adapters.datetime.fromisoformat(result["freshness"]["checked_at"]),
         )
+        self.assertEqual(result["freshness"]["planning_validity"], "historical_snapshot")
+        self.assertEqual(result["freshness"]["refresh_before"], "purchase")
+
+    def test_non_quote_snapshot_uses_its_actual_refresh_boundary(self) -> None:
+        result = source_adapters.make_snapshot(
+            source_adapters.PROVIDERS["variflight_aviation"],
+            "flight",
+            {"flight_number": "CA123"},
+            {},
+            [],
+            "flight_status",
+        )
+        self.assertEqual(result["snapshot_kind"], "operational")
+        self.assertEqual(result["freshness"]["planning_validity"], "historical_snapshot")
+        self.assertEqual(result["freshness"]["refresh_before"], "departure")
 
     def test_unauthorized_is_distinct_from_missing_credential(self) -> None:
         self.assertEqual(

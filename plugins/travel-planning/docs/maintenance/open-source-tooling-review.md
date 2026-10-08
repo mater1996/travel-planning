@@ -9,7 +9,7 @@
 - [mtnrabi/travel-agent-skills](https://github.com/mtnrabi/travel-agent-skills)：通过独立航班/酒店接口返回实时价格与链接，强调调用成本、空结果与服务故障的区分、红眼航班和酒店日期对齐。借鉴错误语义、调用成本披露和入住夜校验；不默认引入 RapidAPI、代理或付费密钥。
 - [XiaoiYuyao/travel-agent-skill](https://github.com/XiaoiYuyao/travel-agent-skill)：中文交通、住宿、餐饮、预算和 Word/网页输出流程较直观。可借鉴多格式交付，但其来源与动态信息契约不足以替代本 Skill。
 - [chaoliuzhu65-tech/universal-travel-planner-skill](https://github.com/chaoliuzhu65-tech/universal-travel-planner-skill)：覆盖 12306 MCP、高德、酒店比价和多格式输出。其非官方 12306 自动化与猜测式平台深链不采用；只保留业务差旅预算、平台对比和多格式输出的思路。
-- [xpzouying/xiaohongshu-mcp](https://github.com/xpzouying/xiaohongshu-mcp)：Apache-2.0 许可的非官方 Streamable HTTP MCP，使用自己管理的独立浏览器提供认证、搜索、详情、主页、发布和互动能力。插件固定 `v2.5.0` / commit `6583124dfda92312b6bc19a042a6acfae63fe498`，按 GitHub Release SHA256 安装；旅行规划默认只读，写操作必须来自用户明确请求。
+- [xpzouying/xiaohongshu-mcp](https://github.com/xpzouying/xiaohongshu-mcp)：Apache-2.0 许可的非官方 Streamable HTTP MCP，使用自己管理的独立浏览器提供认证、搜索、详情、主页、发布和互动能力。插件固定 `v2.5.2` / commit `8eae4eb22ca1135e53f3e2da6c449fdfe5b492ff`，按 GitHub Release SHA256 安装；旅行规划默认只读，写操作必须来自用户明确请求。
 - [SciPhi-AI/agent-search](https://github.com/SciPhi-AI/agent-search)：通用 Bing/AgentSearch RAG 编排器，最后代码活动较早且依赖 OpenAI 0.27.x；不提供小红书连接能力，所以不作为本项目数据源。
 
 ## 已补入本 Skill

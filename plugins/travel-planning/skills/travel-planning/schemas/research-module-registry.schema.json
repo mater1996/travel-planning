@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://travel-planning.local/schemas/research-module-registry.schema.json",
+  "type": "object",
+  "required": ["schema_version", "stage_guides", "modules"],
+  "properties": {
+    "schema_version": {"const": "travel-research-module-registry/v1"},
+    "stage_guides": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": {"type": "string", "pattern": "^references/.+\\.md$"},
+        "uniqueItems": true
+      }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "domain", "applies_to_domains", "depends_on", "guide", "triggers", "schema_refs", "completion_checks"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_-]*)+$"},
+          "kind": {"enum": ["core", "profile"]},
+          "domain": {"type": "string", "minLength": 1},
+          "applies_to_domains": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+          "depends_on": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "guide": {"type": "string", "pattern": "^references/.+\\.md$"},
+          "triggers": {"type": "object"},
+          "schema_refs": {"type": "array", "items": {"type": "string", "pattern": "^schemas/.+\\.json$"}, "uniqueItems": true},
+          "completion_checks": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

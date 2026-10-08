@@ -16,15 +16,26 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+SCRIPT_ROOT = Path(__file__).resolve().parent
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
+from research_profiles import ProfileError, guides_for_stage, modules_for_assignment, resolve_profile
+
 
 ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 WORKSPACE_VERSION = 1
 ARCHIVE_KINDS = {"link", "document", "note"}
 FRESHNESS_CLASSES = {"stable", "seasonal", "dynamic"}
 RESEARCH_STAGES = {"restaurant_discovery", "meal_route_evaluation", "restaurant_ranking"}
+MEAL_INTENTS = {"destination", "experience", "convenience"}
+VALUE_ASSESSMENT_STATUSES = {"supported", "insufficient"}
+ROUTE_INFLUENCE_STATUSES = {"keep_current_skeleton", "review_route"}
 DEFAULT_TASK_STAGES = {
     "restaurant-discovery": "restaurant_discovery",
     "route-data-meals": "meal_route_evaluation",
+    "meal-route-evaluation": "meal_route_evaluation",
     "restaurant-ranking": "restaurant_ranking",
 }
 DOCUMENT_EXTENSIONS = {".pdf", ".html", ".htm", ".md", ".txt", ".json", ".csv", ".docx", ".xlsx", ".png", ".jpg", ".jpeg", ".webp"}
@@ -35,8 +46,11 @@ INVENTORY_REF_ROLES = {"candidate_quote", "operational_check", "station_lookup"}
 INVENTORY_PRODUCTS_BY_DOMAIN = {
     "route-data": {"flight", "train", "air_rail_transfer", "train_station"},
     "transport": {"flight", "train", "air_rail_transfer", "train_station"},
+    "transport-intercity": {"flight", "train", "air_rail_transfer", "train_station"},
+    "road-trip": {"car_rental"},
     "stay-food": {"hotel"},
     "stay_food": {"hotel"},
+    "lodging": {"hotel"},
 }
 TEMPLATE_ROOT = Path(__file__).resolve().parents[1] / "assets" / "agent-templates"
 DOMAIN_TEMPLATES = {
@@ -44,8 +58,13 @@ DOMAIN_TEMPLATES = {
     "attractions": "attractions.json",
     "transport": "route-data.json",
     "route-data": "route-data.json",
+    "transport-intercity": "transport-intercity.json",
+    "transport-local": "transport-local.json",
+    "road-trip": "road-trip.json",
     "stay_food": "stay-food.json",
     "stay-food": "stay-food.json",
+    "lodging": "lodging.json",
+    "meal-windows": "meal-windows.json",
     "restaurant": "restaurants.json",
     "restaurants": "restaurants.json",
     "restaurant-research": "restaurants.json",
@@ -57,8 +76,13 @@ DOMAIN_ENTITY_KEYS = {
     "attraction": {"attractions"},
     "route-data": {"transport_edges", "intercity_options", "route_anchors", "meal_baseline_routes", "meal_route_evaluations"},
     "transport": {"transport_edges", "intercity_options", "route_anchors", "meal_baseline_routes", "meal_route_evaluations"},
+    "transport-intercity": {"transport_edges", "intercity_options", "route_anchors"},
+    "transport-local": {"transport_edges", "route_anchors"},
+    "road-trip": {"vehicles", "road_trip_plans", "rental_options", "parking_locations"},
     "stay-food": {"lodging_options", "meal_options"},
     "stay_food": {"lodging_options", "meal_options"},
+    "lodging": {"lodging_options"},
+    "meal-windows": {"meal_slots"},
     "restaurant": {"restaurants", "restaurant_snapshots", "meal_candidate_sets", "meal_options"},
     "restaurants": {"restaurants", "restaurant_snapshots", "meal_candidate_sets", "meal_options"},
     "restaurant-research": {"restaurants", "restaurant_snapshots", "meal_candidate_sets", "meal_options"},
@@ -70,8 +94,13 @@ DOMAIN_SHARED_ENTITY_TYPES = {
     "attraction": {"attraction", "place"},
     "route-data": {"route_anchor", "transport_hub", "place"},
     "transport": {"route_anchor", "transport_hub", "place"},
+    "transport-intercity": {"route_anchor", "transport_hub", "place"},
+    "transport-local": {"route_anchor", "transport_hub", "place"},
+    "road-trip": {"vehicle", "parking", "place"},
     "stay-food": {"lodging", "place"},
     "stay_food": {"lodging", "place"},
+    "lodging": {"lodging", "place"},
+    "meal-windows": {"place", "route_anchor"},
     "restaurant": {"restaurant", "place"},
     "restaurants": {"restaurant", "place"},
     "restaurant-research": {"restaurant", "place"},
@@ -79,7 +108,7 @@ DOMAIN_SHARED_ENTITY_TYPES = {
     "weather": set(),
 }
 SHARED_ENTITY_TYPES = {
-    "attraction", "place", "transport_hub", "lodging", "restaurant", "route_anchor"
+    "attraction", "place", "transport_hub", "lodging", "restaurant", "route_anchor", "vehicle", "parking"
 }
 RESERVED_SHARED_ENTITY_FIELDS = {
     "task_id", "origin_task_ids", "last_submitted_at"
@@ -146,7 +175,10 @@ def valid_id(value: str, label: str) -> str:
 def revision_digest(workspace: Path, relative_paths: list[str]) -> str:
     hasher = hashlib.sha256()
     for relative in relative_paths:
-        path = workspace / relative
+        if relative.startswith("skill:"):
+            path = SKILL_ROOT / relative.removeprefix("skill:")
+        else:
+            path = workspace / relative
         if not path.is_file():
             raise WorkspaceError(f"输入版本文件不存在：{relative}")
         hasher.update(relative.encode("utf-8"))
@@ -213,7 +245,7 @@ def init_workspace(args: argparse.Namespace) -> dict[str, Any]:
         "created_at": now(),
         "phase": "route_proposal",
         "write_ownership": {
-            "main_agent": ["manifest.json", "brief.json", "route-context.json", "route-proposals.json", "selected-route.json", "state/", "artifacts/", "evidence/main/"],
+            "main_agent": ["manifest.json", "brief.json", "route-context.json", "route-proposals.json", "selected-route.json", "research-profile.json", "state/", "artifacts/", "evidence/main/"],
             "task_agent": ["results/<task_id>.json", "sources/<task_id>.jsonl", "snapshots/<task_id>/", "evidence/<task_id>/"],
         },
         "sensitive_data_policy": "不写入 API Key、Cookie、账号密码、身份证件或支付信息",
@@ -241,12 +273,20 @@ def select_route(args: argparse.Namespace) -> dict[str, Any]:
         raise WorkspaceError("已选路线必须是包含 id 的 JSON 对象")
     route["selected_at"] = route.get("selected_at") or now()
     write_json(workspace / "selected-route.json", route)
+    try:
+        profile = resolve_profile(route)
+    except ProfileError as error:
+        raise WorkspaceError(str(error)) from error
+    write_json(workspace / "research-profile.json", profile)
     manifest = read_json(workspace / "manifest.json")
     manifest["phase"] = "confirmed_planning"
     manifest["selected_route_id"] = route["id"]
     manifest["updated_at"] = now()
     write_json(workspace / "manifest.json", manifest)
-    return {"status": "selected", "workspace": str(workspace), "route_id": route["id"]}
+    return {
+        "status": "selected", "workspace": str(workspace), "route_id": route["id"],
+        "research_profile": "research-profile.json", "modules": profile["modules"],
+    }
 
 
 def assign(args: argparse.Namespace) -> dict[str, Any]:
@@ -258,12 +298,14 @@ def assign(args: argparse.Namespace) -> dict[str, Any]:
     selected_route = workspace / "selected-route.json"
     if not selected_route.exists() and args.domain != "route_proposal":
         raise WorkspaceError("路线尚未确认，不应分配深度调研任务")
+    if args.domain == "audit":
+        raise WorkspaceError("不再分配独立 audit Agent；装配后运行一次确定性 audit_itinerary.py")
     stage = getattr(args, "stage", None) or DEFAULT_TASK_STAGES.get(task_id)
     if stage and stage not in RESEARCH_STAGES:
         raise WorkspaceError(f"未知研究阶段：{stage}")
     if stage in {"restaurant_discovery", "restaurant_ranking"} and args.domain not in {"restaurant", "restaurants", "restaurant-research"}:
         raise WorkspaceError(f"{stage} 必须使用 restaurant-research 领域")
-    if stage == "meal_route_evaluation" and args.domain not in {"route-data", "transport"}:
+    if stage == "meal_route_evaluation" and args.domain not in {"route-data", "transport", "transport-local"}:
         raise WorkspaceError("meal_route_evaluation 必须使用 route-data 领域")
     dependencies = []
     dependency_assignments: list[dict[str, Any]] = []
@@ -299,12 +341,47 @@ def assign(args: argparse.Namespace) -> dict[str, Any]:
     read_first = ["manifest.json", "brief.json", "route-context.json"]
     if args.domain != "route_proposal":
         read_first.append("selected-route.json")
+        profile_path = workspace / "research-profile.json"
+        if not profile_path.is_file():
+            try:
+                write_json(profile_path, resolve_profile(read_json(selected_route)))
+            except ProfileError as error:
+                raise WorkspaceError(str(error)) from error
+        read_first.append("research-profile.json")
+    profile_requirements = {
+        "required_modules": [], "required_guides": [], "schema_refs": [], "completion_checks": [],
+    }
+    module_reasons: dict[str, str] = {}
+    if args.domain != "route_proposal":
+        try:
+            profile_payload = read_json(workspace / "research-profile.json")
+            profile_requirements = modules_for_assignment(profile_payload, args.domain)
+            module_reasons = {
+                module_id: str((profile_payload.get("reasons") or {}).get(module_id) or "")
+                for module_id in profile_requirements["required_modules"]
+            }
+            profile_requirements["required_guides"] = list(dict.fromkeys([
+                *profile_requirements["required_guides"],
+                *guides_for_stage(stage),
+            ]))
+        except ProfileError as error:
+            raise WorkspaceError(str(error)) from error
     dependency_paths = [f"results/{dependency}.json" for dependency in dependencies]
     template_source = TEMPLATE_ROOT / DOMAIN_TEMPLATES[args.domain] if args.domain in DOMAIN_TEMPLATES else None
     template_relative = f"assignments/templates/{task_id}.result-template.json" if template_source else None
     if template_source:
         atomic_copy(template_source, workspace / template_relative)
-    revision_inputs = [*read_first, *dependency_paths, *([template_relative] if template_relative else [])]
+    contract_inputs = [
+        "skill:registries/research-modules.json",
+        *(f"skill:{value}" for value in profile_requirements["required_guides"]),
+        *(f"skill:{value}" for value in profile_requirements["schema_refs"]),
+    ]
+    revision_inputs = [
+        *read_first,
+        *dependency_paths,
+        *([template_relative] if template_relative else []),
+        *dict.fromkeys(contract_inputs),
+    ]
     input_revision = revision_digest(workspace, revision_inputs)
     template_digest = hashlib.sha256((workspace / template_relative).read_bytes()).hexdigest() if template_relative else None
     template_version = None
@@ -318,6 +395,8 @@ def assign(args: argparse.Namespace) -> dict[str, Any]:
         "domain": args.domain,
         "stage": stage,
         "instructions": args.instructions,
+        **profile_requirements,
+        "module_reasons": module_reasons,
         "depends_on": dependencies,
         "read_first": read_first,
         "input_paths": [*read_first, *([template_relative] if template_relative else []), f"assignments/{task_id}.json"],
@@ -337,6 +416,7 @@ def assign(args: argparse.Namespace) -> dict[str, Any]:
             "brief.json",
             "route-context.json",
             "selected-route.json",
+            "research-profile.json",
             "state/",
             "artifacts/",
             "SKILL.md",
@@ -515,7 +595,7 @@ def store_source_snapshot(workspace: Path, task_id: str, snapshot: dict[str, Any
     assignment = read_json(assignment_path)
     allowed_products = INVENTORY_PRODUCTS_BY_DOMAIN.get(str(assignment.get("domain")))
     if not allowed_products:
-        raise WorkspaceError("只有 route-data/transport 或 stay-food 任务可以保存酒旅快照")
+        raise WorkspaceError("只有交通、road-trip 或住宿任务可以保存酒旅快照")
     validate_source_snapshot(snapshot)
     if snapshot.get("product_type") not in allowed_products:
         raise WorkspaceError(
@@ -551,11 +631,13 @@ def validate_inventory_bindings(result: dict[str, Any], snapshots: list[dict[str
     domain = str(result.get("domain") or "")
     entities = result.get("entities") or {}
     candidate_groups = []
-    if domain in {"route-data", "transport"}:
+    if domain in {"route-data", "transport", "transport-intercity"}:
         candidate_groups.append(("transport_edges", entities.get("transport_edges") or []))
         candidate_groups.append(("intercity_options", entities.get("intercity_options") or []))
-    if domain in {"stay-food", "stay_food"}:
+    if domain in {"stay-food", "stay_food", "lodging"}:
         candidate_groups.append(("lodging_options", entities.get("lodging_options") or []))
+    if domain == "road-trip":
+        candidate_groups.append(("rental_options", entities.get("rental_options") or []))
     for group_name, candidates in candidate_groups:
         for candidate in candidates:
             for ref in candidate.get("inventory_refs") or []:
@@ -573,6 +655,8 @@ def validate_inventory_bindings(result: dict[str, Any], snapshots: list[dict[str
                     raise WorkspaceError(f"{group_name} 的 candidate_quote 必须引用 quote 快照")
                 if group_name == "lodging_options" and snapshot.get("product_type") != "hotel":
                     raise WorkspaceError("住宿候选只能引用 hotel 快照")
+                if group_name == "rental_options" and snapshot.get("product_type") != "car_rental":
+                    raise WorkspaceError("租车候选只能引用 car_rental 快照")
                 if group_name in {"transport_edges", "intercity_options"} and snapshot.get("product_type") == "hotel":
                     raise WorkspaceError("城际交通候选不能引用 hotel 快照")
                 if snapshot.get("snapshot_kind") == "quote":
@@ -635,6 +719,29 @@ def validate_stage_result(workspace: Path, assignment: dict[str, Any], result: d
                 snapshot = snapshot_map.get(str(binding.get("snapshot_id") or ""))
                 if not snapshot or str(snapshot.get("restaurant_id") or "") != restaurant_id:
                     raise WorkspaceError("restaurant_discovery 每个候选必须绑定匹配的动态快照")
+            if int(assignment.get("template_version") or 0) >= 5:
+                if meal.get("meal_intent") not in MEAL_INTENTS:
+                    raise WorkspaceError("restaurant_discovery 每个餐窗必须声明 destination、experience 或 convenience 用餐意图")
+                route_worthy_ids: set[str] = set()
+                for restaurant_id, binding in bindings.items():
+                    assessment = binding.get("value_assessment") or {}
+                    if assessment.get("status") not in VALUE_ASSESSMENT_STATUSES:
+                        raise WorkspaceError("restaurant_discovery 每个候选必须提供社区价值判断状态")
+                    if not isinstance(assessment.get("route_worthy"), bool) or not assessment.get("summary"):
+                        raise WorkspaceError("restaurant_discovery 每个候选必须说明是否值得为其调整路线及理由")
+                    source_ids = {str(value) for value in assessment.get("source_ids") or [] if value}
+                    if assessment.get("route_worthy"):
+                        if assessment.get("status") != "supported" or len(source_ids) < 2:
+                            raise WorkspaceError("值得调整路线的餐厅必须有至少两条近期社区来源支持")
+                        route_worthy_ids.add(restaurant_id)
+                influence = meal.get("route_influence") or {}
+                if influence.get("status") not in ROUTE_INFLUENCE_STATUSES or not influence.get("reason"):
+                    raise WorkspaceError("restaurant_discovery 每个餐窗必须记录路线影响结论和理由")
+                influence_ids = {str(value) for value in influence.get("restaurant_ids") or []}
+                if influence_ids != route_worthy_ids:
+                    raise WorkspaceError("restaurant_discovery 的 route_influence 必须完整对应值得调整路线的候选")
+                if influence.get("status") == "review_route" and not influence_ids:
+                    raise WorkspaceError("review_route 必须至少引用一家值得调整路线的餐厅")
             if not isinstance((meal.get("constraints") or {}).get("max_detour_minutes"), (int, float)):
                 raise WorkspaceError("restaurant_discovery 每个餐窗必须给出数值 max_detour_minutes")
             for anchor_name in ("previous_anchor", "next_anchor"):
@@ -728,6 +835,55 @@ def validate_stage_result(workspace: Path, assignment: dict[str, Any], result: d
                 raise WorkspaceError("restaurant_ranking 必须明确合法主选和结构化备选")
             if invalid_rank:
                 raise WorkspaceError("restaurant_ranking 必须完整绑定候选并给出连续排名，主选为 rank=1")
+
+
+def validate_profile_completion(assignment: dict[str, Any], result: dict[str, Any]) -> None:
+    """Enforce high-risk profile fields once a dedicated task owns them."""
+    if result.get("status") != "complete" or assignment.get("domain") != "road-trip":
+        return
+    required_modules = set(str(value) for value in assignment.get("required_modules") or [])
+    entities = result.get("entities") or {}
+    if "transport.self_drive" not in required_modules:
+        raise WorkspaceError("road-trip 任务只能在 research profile 激活自驾时完成")
+    plans = entities.get("road_trip_plans") or []
+    if not plans:
+        raise WorkspaceError("自驾任务 complete 必须包含 road_trip_plans")
+    required_plan_fields = {
+        "id", "vehicle_id", "route_edge_ids", "drivers", "driving_duration",
+        "road_restrictions", "parking_stops", "energy_plan", "emergency_plan", "source_ids",
+    }
+    for plan in plans:
+        missing = sorted(field for field in required_plan_fields if plan.get(field) in (None, "", []))
+        if missing:
+            raise WorkspaceError(f"自驾计划缺少字段：{', '.join(missing)}")
+        duration = plan.get("driving_duration") or {}
+        if any(duration.get(field) in (None, "", []) for field in ("total_minutes", "max_continuous_minutes", "rest_plan")):
+            raise WorkspaceError("自驾计划 driving_duration 必须包含 total_minutes、max_continuous_minutes 和 rest_plan")
+        energy = plan.get("energy_plan") or {}
+        if any(energy.get(field) in (None, "", []) for field in ("energy_type", "primary", "fallback")):
+            raise WorkspaceError("自驾计划 energy_plan 必须包含 energy_type、primary 和 fallback")
+        emergency = plan.get("emergency_plan") or {}
+        if any(emergency.get(field) in (None, "", []) for field in ("roadside_assistance", "route_failure_fallback")):
+            raise WorkspaceError("自驾计划 emergency_plan 必须包含道路救援和路线失败备选")
+        for stop in plan.get("parking_stops") or []:
+            if not stop.get("stop_id") or not (stop.get("parking_location_id") or stop.get("fallback")):
+                raise WorkspaceError("每个自驾停靠点必须提供 stop_id，以及停车点或不可停车后的替代接驳")
+    if "transport.car_rental" in required_modules:
+        options = entities.get("rental_options") or []
+        if not options:
+            raise WorkspaceError("租车自驾任务 complete 必须包含 rental_options")
+        required_rental_fields = {
+            "id", "vehicle_id", "pickup", "return", "driver_requirements", "price",
+            "deposit", "insurance", "fuel_or_charge_policy", "mileage_policy", "cancellation", "source_ids",
+        }
+        for option in options:
+            missing = sorted(field for field in required_rental_fields if option.get(field) in (None, "", []))
+            if missing:
+                raise WorkspaceError(f"租车候选缺少字段：{', '.join(missing)}")
+            for endpoint in ("pickup", "return"):
+                value = option.get(endpoint) or {}
+                if any(not value.get(field) for field in ("location", "event_at", "opening_hours")):
+                    raise WorkspaceError(f"租车候选 {endpoint} 必须包含 location、event_at 和 opening_hours")
 
 
 def normalize_sources(payload: Any, task_id: str) -> list[dict[str, Any]]:
@@ -915,6 +1071,7 @@ def submit(args: argparse.Namespace) -> dict[str, Any]:
     )
     validate_inventory_bindings(result, snapshots)
     validate_stage_result(workspace, assignment, result)
+    validate_profile_completion(assignment, result)
     result["submitted_at"] = now()
 
     sources = []
@@ -1225,6 +1382,7 @@ def merge(args: argparse.Namespace) -> dict[str, Any]:
         "schema_version": "travel-research-state/v2",
         "trip_id": read_json(workspace / "manifest.json")["trip_id"],
         "selected_route": read_json(workspace / "selected-route.json") if (workspace / "selected-route.json").exists() else None,
+        "research_profile": read_json(workspace / "research-profile.json") if (workspace / "research-profile.json").exists() else None,
         "tasks": task_index,
         "global_state": {
             "shared_entities": shared_entities,

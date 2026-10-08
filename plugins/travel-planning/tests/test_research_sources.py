@@ -303,7 +303,7 @@ class ResearchSourcesTest(unittest.TestCase):
         }
         args = Namespace(
             keyword="景点 10月 入口 避坑",
-            sort_by="latest",
+            sort_by="relevance",
             note_type="all",
             publish_time="half_year",
             search_scope="all",
@@ -320,10 +320,23 @@ class ResearchSourcesTest(unittest.TestCase):
             self.assertEqual(result["results"][0]["note_id"], "note-1")
             self.assertEqual(
                 call.args[1]["filters"],
-                {"sort_by": "最新", "publish_time": "半年内"},
+                {"publish_time": "半年内"},
             )
             self.assertEqual(json.loads(cache.read_text(encoding="utf-8"))["notes"]["note-1"]["xsec_token"], "secret-token")
             self.assertEqual(cache.stat().st_mode & 0o777, 0o600)
+
+    def test_xhs_search_cli_defaults_to_one_non_default_filter(self) -> None:
+        args = research_sources.build_parser().parse_args([
+            "xhs-search",
+            "--keyword",
+            "昆明 三日游",
+        ])
+
+        self.assertEqual(args.sort_by, "relevance")
+        self.assertEqual(args.note_type, "all")
+        self.assertEqual(args.publish_time, "half_year")
+        self.assertEqual(args.search_scope, "all")
+        self.assertEqual(args.location, "all")
 
     def test_xhs_detail_reads_token_from_private_cache(self) -> None:
         response = {

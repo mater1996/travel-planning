@@ -94,9 +94,87 @@ class PluginLayoutTest(unittest.TestCase):
 
     def test_travel_planning_has_generic_assembler_contract(self) -> None:
         skill = ROOT / "skills" / "travel-planning"
+        self.assertTrue((skill / "scripts" / "generate_itinerary_plan.py").is_file())
         self.assertTrue((skill / "scripts" / "assemble_itinerary.py").is_file())
         schema = json.loads((skill / "schemas" / "itinerary-plan.schema.json").read_text(encoding="utf-8"))
         self.assertEqual(schema["properties"]["schema_version"]["const"], "itinerary-plan/v1")
+        decisions_schema = json.loads(
+            (skill / "schemas" / "planning-decisions.schema.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            decisions_schema["properties"]["schema_version"]["const"],
+            "planning-decisions/v1",
+        )
+
+    def test_travel_planning_has_progressive_research_modules(self) -> None:
+        skill = ROOT / "skills" / "travel-planning"
+        registry = json.loads((skill / "registries" / "research-modules.json").read_text(encoding="utf-8"))
+        module_ids = {item["id"] for item in registry["modules"]}
+        self.assertEqual(registry["schema_version"], "travel-research-module-registry/v1")
+        self.assertTrue({"transport.self_drive", "transport.car_rental", "transport.rail"}.issubset(module_ids))
+        self.assertTrue((skill / "scripts" / "research_profiles.py").is_file())
+        self.assertTrue((skill / "schemas" / "research-profile.schema.json").is_file())
+        self.assertTrue((skill / "references" / "index.md").is_file())
+        for domain in (
+            "core",
+            "orchestration",
+            "workspace",
+            "attractions",
+            "transport",
+            "dining",
+            "lodging",
+            "tools",
+            "output",
+            "compat",
+        ):
+            self.assertTrue((skill / "references" / domain / "index.md").is_file())
+        for domain in ("attractions", "transport", "dining", "lodging"):
+            self.assertFalse((skill / "references" / domain / "core.md").exists())
+
+    def test_each_reference_directory_index_links_every_sibling_guide(self) -> None:
+        references = ROOT / "skills" / "travel-planning" / "references"
+        for domain in (
+            "core",
+            "orchestration",
+            "workspace",
+            "attractions",
+            "transport",
+            "dining",
+            "lodging",
+            "tools",
+            "output",
+            "compat",
+        ):
+            directory = references / domain
+            index_text = (directory / "index.md").read_text(encoding="utf-8")
+            for guide in directory.glob("*.md"):
+                if guide.name == "index.md":
+                    continue
+                self.assertIn(
+                    f"]({guide.name})", index_text,
+                    msg=f"{domain}/index.md 没有路由到 {guide.name}",
+                )
+
+    def test_reference_root_only_contains_the_router_markdown(self) -> None:
+        references = ROOT / "skills" / "travel-planning" / "references"
+        self.assertEqual(
+            sorted(path.name for path in references.glob("*.md")),
+            ["index.md"],
+        )
+
+    def test_new_assignments_do_not_route_to_compatibility_guides(self) -> None:
+        skill = ROOT / "skills" / "travel-planning"
+        registry_text = (skill / "registries" / "research-modules.json").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("references/compat/", registry_text)
+        compat = skill / "references" / "compat"
+        for guide in compat.glob("*.md"):
+            self.assertLessEqual(
+                len(guide.read_text(encoding="utf-8").splitlines()),
+                30,
+                msg=f"兼容文档不应重新承载正文: {guide.name}",
+            )
 
     def test_travel_planning_ships_compiled_vue_frontend(self) -> None:
         frontend = ROOT / "skills" / "travel-planning" / "assets" / "frontend"

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://travel-planning.local/schemas/road-trip-plan.schema.json",
+  "type": "object",
+  "required": ["id", "vehicle_id", "route_edge_ids", "drivers", "driving_duration", "road_restrictions", "parking_stops", "energy_plan", "emergency_plan", "source_ids"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "vehicle_id": {"type": "string", "minLength": 1},
+    "route_edge_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "drivers": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "driving_duration": {
+      "type": "object",
+      "required": ["total_minutes", "max_continuous_minutes", "rest_plan"],
+      "properties": {
+        "total_minutes": {"type": "number", "minimum": 0},
+        "max_continuous_minutes": {"type": "number", "exclusiveMinimum": 0},
+        "rest_plan": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+      }
+    },
+    "road_restrictions": {"type": "array", "items": {"type": "object"}},
+    "parking_stops": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["stop_id"],
+        "properties": {
+          "stop_id": {"type": "string", "minLength": 1},
+          "parking_location_id": {"type": "string", "minLength": 1},
+          "fallback": {"type": "object"}
+        },
+        "anyOf": [
+          {"required": ["parking_location_id"]},
+          {"required": ["fallback"]}
+        ]
+      }
+    },
+    "energy_plan": {
+      "type": "object",
+      "required": ["energy_type", "primary", "fallback"],
+      "properties": {
+        "energy_type": {"enum": ["gasoline", "diesel", "electric", "hybrid", "other"]},
+        "primary": {"type": "object"},
+        "fallback": {"type": "object"}
+      }
+    },
+    "emergency_plan": {
+      "type": "object",
+      "required": ["roadside_assistance", "route_failure_fallback"],
+      "properties": {
+        "roadside_assistance": {"type": "object"},
+        "route_failure_fallback": {"type": "object"}
+      }
+    },
+    "source_ids": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

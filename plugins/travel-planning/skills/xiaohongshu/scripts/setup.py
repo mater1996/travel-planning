@@ -19,8 +19,8 @@ from urllib.request import Request, urlopen
 
 
 UPSTREAM_REPOSITORY = "https://github.com/xpzouying/xiaohongshu-mcp"
-UPSTREAM_VERSION = "v2.5.0"
-UPSTREAM_COMMIT = "6583124dfda92312b6bc19a042a6acfae63fe498"
+UPSTREAM_VERSION = "v2.5.2"
+UPSTREAM_COMMIT = "8eae4eb22ca1135e53f3e2da6c449fdfe5b492ff"
 RELEASE_BASE_URL = f"{UPSTREAM_REPOSITORY}/releases/download/{UPSTREAM_VERSION}"
 DEFAULT_ENDPOINT = "http://127.0.0.1:18060"
 DEFAULT_DATA_ROOT = Path.home() / ".local" / "share" / "travel-planning" / "xiaohongshu-mcp"
@@ -35,21 +35,21 @@ ASSETS = {
     ("Darwin", "arm64"): {
         "server": (
             "xiaohongshu-mcp-darwin-arm64",
-            "3e32e08c3403d22a5efef2f06aa52630b458819fc54474cba23e896c7092c38e",
+            "63423ae3b2ff1ae77c1f9bb1d20a5c8129417ee7f9df4e86290c6097dcbc500e",
         ),
         "login": (
             "xiaohongshu-login-darwin-arm64",
-            "db5d07c03933b8192dab726d896a028721b096ea452f6e9967ef63a30618ba99",
+            "536c93c33e4205967b0a6dfb977449722131d9d7456c6ebf5ccfc8c0e1cc28d4",
         ),
     },
     ("Linux", "x86_64"): {
         "server": (
             "xiaohongshu-mcp-linux-amd64",
-            "2695820af3a924412c0e555042b81a2598d144342539d4ebea18b17d56c85fbf",
+            "2ef65d30496e1f71c46845eae1105dc5679ac010f82dadb6ff7b57149ae2f03f",
         ),
         "login": (
             "xiaohongshu-login-linux-amd64",
-            "367c865f3adc4dfa3407417401a911da313765da12680d1d8f46cae3ea124393",
+            "5336513d766972b6cb6ad434ef0560db8385cc15cf8d674286889f87013fa35e",
         ),
     },
 }

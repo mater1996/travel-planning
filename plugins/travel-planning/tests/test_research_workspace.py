@@ -263,11 +263,106 @@ class ResearchWorkspaceTest(unittest.TestCase):
         self.assertIn("snapshots/weather/", assigned["owned_paths"])
         self.assertIn("artifacts/", assigned["forbidden_paths"])
         self.assertIn("assignments/weather.json", assigned["input_paths"])
-        self.assertEqual(assigned["read_first"], ["manifest.json", "brief.json", "route-context.json", "selected-route.json"])
+        self.assertEqual(assigned["read_first"], ["manifest.json", "brief.json", "route-context.json", "selected-route.json", "research-profile.json"])
+        self.assertEqual(assigned["required_modules"], [])
+        self.assertEqual(assigned["required_guides"], [])
         self.assertIn("route-context.json", assigned["forbidden_paths"])
         self.assertTrue(assigned["result_template"].endswith("weather.result-template.json"))
         self.assertIn("shared_entities", assigned["shared_state_policy"])
         self.assertEqual(len(assigned["input_revision"]), 64)
+
+    def test_transport_assignment_materializes_profile_guides(self) -> None:
+        route_file = self.root / "route-with-rail.json"
+        write_json(route_file, {
+            "id": "route-rail",
+            "research_features": {"transport_modes": ["rail"]},
+        })
+        research_workspace.select_route(Namespace(workspace=str(self.workspace), route_file=str(route_file)))
+        assigned = research_workspace.assign(Namespace(
+            workspace=str(self.workspace), task_id="rail-plan", domain="transport-intercity",
+            instructions="比较铁路候选", depends_on=None,
+        ))["assignment"]
+        self.assertEqual(assigned["required_modules"], ["transport.core", "transport.rail"])
+        self.assertIn("references/transport/index.md", assigned["required_guides"])
+        self.assertIn("references/transport/rail.md", assigned["required_guides"])
+        self.assertIn("rail_verification", assigned["completion_checks"])
+        self.assertIn("transport.rail", assigned["module_reasons"])
+        self.assertIn("skill:references/transport/rail.md", assigned["revision_inputs"])
+        self.assertIn("skill:registries/research-modules.json", assigned["revision_inputs"])
+
+    def test_road_trip_complete_requires_profile_fields(self) -> None:
+        assignment = {
+            "domain": "road-trip",
+            "required_modules": ["transport.core", "transport.self_drive", "transport.car_rental"],
+        }
+        with self.assertRaisesRegex(research_workspace.WorkspaceError, "road_trip_plans"):
+            research_workspace.validate_profile_completion(assignment, {
+                "status": "complete", "entities": {"road_trip_plans": [], "rental_options": []},
+            })
+
+    def test_complete_road_trip_accepts_structured_self_drive_and_rental_contracts(self) -> None:
+        assignment = {
+            "domain": "road-trip",
+            "required_modules": ["transport.core", "transport.self_drive", "transport.car_rental"],
+        }
+        research_workspace.validate_profile_completion(assignment, {
+            "status": "complete",
+            "entities": {
+                "road_trip_plans": [{
+                    "id": "drive-1", "vehicle_id": "vehicle-1", "route_edge_ids": ["edge-1"],
+                    "drivers": [{"id": "driver-1", "eligible": True}],
+                    "driving_duration": {
+                        "total_minutes": 240, "max_continuous_minutes": 120,
+                        "rest_plan": [{"after_minutes": 120}],
+                    },
+                    "road_restrictions": [{"rule": "按适用日期复核"}],
+                    "parking_stops": [{"stop_id": "spot-1", "parking_location_id": "parking-1"}],
+                    "energy_plan": {
+                        "energy_type": "gasoline", "primary": {"station": "A"},
+                        "fallback": {"station": "B"},
+                    },
+                    "emergency_plan": {
+                        "roadside_assistance": {"channel": "rental-company"},
+                        "route_failure_fallback": {"mode": "rail"},
+                    },
+                    "source_ids": ["road-trip-source-1"],
+                }],
+                "rental_options": [{
+                    "id": "rental-1", "vehicle_id": "vehicle-1",
+                    "pickup": {
+                        "location": {"name": "机场门店"},
+                        "event_at": "2026-10-03T10:00:00+08:00", "opening_hours": "08:00-22:00",
+                    },
+                    "return": {
+                        "location": {"name": "车站门店"},
+                        "event_at": "2026-10-05T16:00:00+08:00", "opening_hours": "08:00-20:00",
+                    },
+                    "driver_requirements": {"minimum_age": 21}, "price": {"amount": 900},
+                    "deposit": {"amount": 3000}, "insurance": {"excess": 1000},
+                    "fuel_or_charge_policy": {"policy": "same-to-same"},
+                    "mileage_policy": {"unlimited": True}, "cancellation": {"deadline": "取车前24小时"},
+                    "source_ids": ["road-trip-source-1"],
+                }],
+            },
+        })
+
+    def test_car_rental_quotes_bind_only_to_rental_options(self) -> None:
+        snapshot = inventory_snapshot()
+        snapshot["product_type"] = "car_rental"
+        result = {
+            "domain": "road-trip",
+            "entities": {"rental_options": [{
+                "id": "rental-1",
+                "inventory_refs": [{
+                    "snapshot_id": snapshot["snapshot_id"], "offer_id": "g1234-second",
+                    "role": "candidate_quote",
+                }],
+            }]},
+        }
+        research_workspace.validate_inventory_bindings(result, [snapshot])
+        snapshot["product_type"] = "train"
+        with self.assertRaisesRegex(research_workspace.WorkspaceError, "只能引用 car_rental"):
+            research_workspace.validate_inventory_bindings(result, [snapshot])
 
     def test_workspace_initializes_route_context_for_bounded_community_research(self) -> None:
         context = json.loads((self.workspace / "route-context.json").read_text(encoding="utf-8"))
@@ -322,7 +417,7 @@ class ResearchWorkspaceTest(unittest.TestCase):
         with self.assertRaisesRegex(research_workspace.WorkspaceError, "必须投影为候选并绑定"):
             research_workspace.validate_inventory_bindings(result, [inventory_snapshot()])
 
-    def test_restaurant_assignment_uses_v4_template_and_owned_entities(self) -> None:
+    def test_restaurant_assignment_uses_v5_template_and_owned_entities(self) -> None:
         assigned = research_workspace.assign(
             Namespace(
                 workspace=str(self.workspace),
@@ -332,9 +427,25 @@ class ResearchWorkspaceTest(unittest.TestCase):
                 depends_on=None,
             )
         )["assignment"]
-        self.assertEqual(assigned["template_version"], 4)
+        self.assertEqual(assigned["template_version"], 5)
+        self.assertIn("references/dining/index.md", assigned["required_guides"])
         template = json.loads((self.workspace / assigned["result_template"]).read_text(encoding="utf-8"))
         self.assertEqual(set(template["entities"]), {"restaurants", "restaurant_snapshots", "meal_candidate_sets", "meal_options"})
+
+    def test_staged_restaurant_assignment_adds_only_relevant_guides(self) -> None:
+        assigned = research_workspace.assign(
+            Namespace(
+                workspace=str(self.workspace), task_id="restaurant-discovery",
+                domain="restaurant-research", instructions="发现并核验餐厅候选",
+                depends_on=None,
+            )
+        )["assignment"]
+        self.assertEqual(assigned["stage"], "restaurant_discovery")
+        self.assertIn("references/dining/index.md", assigned["required_guides"])
+        self.assertIn("references/dining/discovery.md", assigned["required_guides"])
+        self.assertIn("references/dining/operations.md", assigned["required_guides"])
+        self.assertNotIn("references/dining/ranking.md", assigned["required_guides"])
+        self.assertIn("skill:references/dining/discovery.md", assigned["revision_inputs"])
 
     def test_stay_food_cannot_submit_restaurant_shared_entity(self) -> None:
         result = {
@@ -628,6 +739,56 @@ class ResearchWorkspaceTest(unittest.TestCase):
         with self.assertRaisesRegex(research_workspace.WorkspaceError, "必须包含餐厅、动态快照和逐餐候选集"):
             research_workspace.submit(
                 Namespace(workspace=str(self.workspace), task_id="restaurant-discovery", result_file=str(result_file), sources_file=None)
+            )
+
+    def test_restaurant_discovery_v5_requires_value_first_route_assessment(self) -> None:
+        assignment = {"stage": "restaurant_discovery", "template_version": 5, "dependency_paths": []}
+        result = {
+            "status": "complete",
+            "entities": {
+                "restaurants": [{"id": "r1"}, {"id": "r2"}],
+                "restaurant_snapshots": [
+                    {"snapshot_id": "s1", "restaurant_id": "r1"},
+                    {"snapshot_id": "s2", "restaurant_id": "r2"},
+                ],
+                "meal_candidate_sets": [{
+                    "id": "meal-1",
+                    "meal_intent": "destination",
+                    "candidate_ids": ["r1", "r2"],
+                    "candidates": [
+                        {"restaurant_id": "r1", "snapshot_id": "s1", "value_assessment": {
+                            "status": "supported", "route_worthy": True,
+                            "summary": "近期多位作者认为值得专程前往", "source_ids": ["xhs-1", "xhs-2"],
+                        }},
+                        {"restaurant_id": "r2", "snapshot_id": "s2", "value_assessment": {
+                            "status": "supported", "route_worthy": False,
+                            "summary": "适合作为附近备选", "source_ids": ["xhs-3"],
+                        }},
+                    ],
+                    "route_influence": {
+                        "status": "review_route", "restaurant_ids": ["r1"],
+                        "reason": "主候选值得成为当日路线锚点",
+                    },
+                    "candidate_policy": {"status": "normal", "searched_count": 4},
+                    "constraints": {"max_detour_minutes": 45},
+                    "previous_anchor": {"name": "A", "physical_address": "A路1号", "coordinates": "120.1,30.1"},
+                    "next_anchor": {"name": "B", "physical_address": "B路1号", "coordinates": "120.2,30.2"},
+                }],
+            },
+        }
+        research_workspace.validate_stage_result(self.workspace, assignment, result)
+
+        result["entities"]["meal_candidate_sets"][0]["candidates"][0]["value_assessment"]["source_ids"] = ["xhs-1"]
+        with self.assertRaisesRegex(research_workspace.WorkspaceError, "至少两条近期社区来源"):
+            research_workspace.validate_stage_result(self.workspace, assignment, result)
+
+    def test_audit_agent_assignment_is_rejected(self) -> None:
+        with self.assertRaisesRegex(research_workspace.WorkspaceError, "不再分配独立 audit Agent"):
+            research_workspace.assign(
+                Namespace(
+                    workspace=str(self.workspace), task_id="audit", domain="audit",
+                    instructions="独立审查", depends_on=None,
+                )
             )
 
     def test_meal_route_stage_must_cover_all_discovery_candidates(self) -> None:

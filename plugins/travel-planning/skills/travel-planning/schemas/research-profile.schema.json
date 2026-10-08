@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://travel-planning.local/schemas/research-profile.schema.json",
+  "type": "object",
+  "required": ["schema_version", "selected_route_id", "modules", "reasons", "compatibility_mode", "generated_at"],
+  "properties": {
+    "schema_version": {"const": "travel-research-profile/v1"},
+    "selected_route_id": {"type": "string", "minLength": 1},
+    "modules": {"type": "array", "minItems": 4, "items": {"type": "string"}, "uniqueItems": true},
+    "reasons": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
+    "compatibility_mode": {"enum": ["structured", "legacy_core_only"]},
+    "generated_at": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

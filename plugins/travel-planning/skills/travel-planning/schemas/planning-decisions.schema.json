@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/travel-planning/planning-decisions.schema.json",
+  "title": "Agent planning decisions applied to a generated itinerary plan candidate",
+  "type": "object",
+  "required": ["schema_version", "research_state_sha256", "workflow", "days"],
+  "properties": {
+    "schema_version": {"const": "planning-decisions/v1"},
+    "research_state_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "workflow": {
+      "type": "object",
+      "properties": {
+        "plan_status": {"enum": ["candidate", "reviewed"]}
+      }
+    },
+    "trip": {"type": "object"},
+    "defaults": {"type": "object"},
+    "collections": {"type": "object", "additionalProperties": {"type": "object"}},
+    "attraction_events": {"type": "object", "additionalProperties": {"type": "object"}},
+    "meal_configs": {"type": "object", "additionalProperties": {"type": "object"}},
+    "planning": {"type": "object"},
+    "days": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "start_anchor": {"$ref": "#/$defs/routeAnchor"},
+          "end_anchor": {"$ref": "#/$defs/routeAnchor"},
+          "event_order": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "event_overrides": {"type": "object", "additionalProperties": {"type": "object"}},
+          "remove_event_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "append_events": {"type": "array", "items": {"$ref": "#/$defs/scheduledEvent"}}
+        }
+      }
+    },
+    "booking_tasks": {"type": "array", "items": {"type": "object"}},
+    "decision_notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "routeAnchor": {
+      "type": "object",
+      "required": ["name", "coordinates"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "physical_address": {"type": "string", "minLength": 1},
+        "coordinates": {"type": "string", "pattern": "^-?[0-9]+(?:\\.[0-9]+)?,-?[0-9]+(?:\\.[0-9]+)?$"},
+        "coordinate_system": {"const": "GCJ-02"}
+      }
+    },
+    "scheduledEvent": {
+      "type": "object",
+      "required": ["id", "time", "type", "title"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "time": {"type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$"},
+        "end_time": {"type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$"},
+        "type": {"enum": ["attraction", "transport", "meal", "lodging", "rest", "note"]},
+        "title": {"type": "string", "minLength": 1},
+        "subtitle": {"type": "string", "minLength": 1},
+        "details": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "tips": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "allOf": [
+        {"not": {"required": ["description"]}},
+        {
+          "if": {"properties": {"type": {"const": "note"}}, "required": ["type"]},
+          "then": {"not": {"required": ["end_time"]}}
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
